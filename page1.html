@@ -1,0 +1,79 @@
+<style>
+html, body {
+  padding: 0;
+  margin: 0;
+}
+</style>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script type="text/javascript">
+
+$(document).ready(function() {
+    var date = new Date(Date.now() - 5 * 3600 * 1000);
+    $("#time").html((date.getUTCHours()+1) + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+
+    $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
+      $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
+    });
+
+    $.getJSON("http://api.openweathermap.org/data/2.5/forecast?q=Durham,us&mode=json&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
+      console.log(json);
+      for (var i = 0; i < 6; i++) {
+        var date = new Date(json.list[i].dt*1000- 5 * 3600 * 1000);
+        console.log(date);
+        $("#weather" + i).html("<td>" + (date.getUTCHours()+1) + ":00" + "</td><td>" + json.list[i].weather[0].main + "</td><td>" + Math.round(json.list[i].main.temp * 9/5 - 459.67) + "&deg;F</td><td>" + json.list[i].main.humidity + "%</td><td>" + json.list[i].wind.speed + "</td>");
+      }
+    });
+
+});
+
+window.setInterval(function(){
+  var date = new Date(Date.now() - 5 * 3600 * 1000);
+  $("#time").html((date.getUTCHours()+1) + ":" + ("0" + date.getUTCMinutes()).slice(-2) + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+}, 5000);
+
+document.onkeyup = KeyCheck;
+
+function KeyCheck(e) {
+  var KeyID = (window.event) ? event.keyCode : e.keyCode;
+	switch(KeyID) {
+    case 37:
+      window.location = "page3.html";
+      break;
+    case 39:
+		  window.location = "page2.html";
+		  break;
+	}
+}
+</script>
+<div style="color: white; background-color:black; height:100%; width:100%; display:inline-block; margin:0px 0px 0px 0px;">
+  <div style="width:100%; height:5%; font-size: 5vh; margin-top:1%; margin-bottom:1%;">
+    <div id="temp" style="width:45%; height:100%; float:left; margin-left:5%;">
+
+    </div>
+    <div id="time" style="width:45%; height:100%; float:right; text-align:right; margin-right:5%;">
+      12:00 PM 1/1/11
+    </div>
+  </div>
+  <div style="margin:0 5% 0 5%; position: absolute; bottom: 1%; height:60%; width:100%;">
+    <table style="color:white; width:90%; font-size:5vh; margin-left:0%; margin-right: 5%; border-collapse: collapse;">
+      <tr style="border-bottom: 1px solid; border-color:white;">
+        <td>Time</td>
+        <td>About</td>
+        <td>Temp</td>
+        <td>Humidity</td>
+        <td>Wind</td>
+      </tr>
+      <tr id="weather0">
+      </tr>
+      <tr id="weather1">
+      </tr>
+      <tr id="weather2">
+      </tr>
+      <tr id="weather3">
+      </tr>
+      <tr id="weather4">
+      </tr>
+      <tr id="weather5">
+    </table>
+  </div>
+</div>
