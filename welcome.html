@@ -9,7 +9,14 @@ html, body {
 
 $(document).ready(function() {
     var date = new Date(Date.now() - 5 * 3600 * 1000);
-    $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+    $("#time").html((date.getUTCHours()+1) + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+    if (date.getUTCHours() < 12) {
+      $("#greeting").html("Good Morning");
+    } else if (date.getUTCHours() > 20) {
+      $("#greeting").html("Good Night");
+    } else {
+      $("#greeting").html("Good Afternoon");
+    }
 
     $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
       $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
@@ -18,7 +25,7 @@ $(document).ready(function() {
 
 window.setInterval(function(){
   var date = new Date(Date.now() - 5 * 3600 * 1000);
-  $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+  $("#time").html((date.getUTCHours()+1) + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
 }, 5000);
 
 document.onkeyup = KeyCheck;
@@ -44,7 +51,8 @@ function KeyCheck(e) {
       12:00 PM 1/1/11
     </div>
   </div>
-  <div style="margin:0 5% 0 5%; position: absolute; bottom: 1%;">
-    Page 3
+  <div style="margin:0 5% 0 5%; position: absolute; bottom: 1%; text-align: center; height:60%; width:100%;">
+    <div id="greeting" style="font-size:72"></div>
+    <div id="greeting" style="font-size:24">Press your combination on the buttons</div>
   </div>
 </div>
