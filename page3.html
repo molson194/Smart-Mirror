@@ -14,6 +14,18 @@ $(document).ready(function() {
     $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
       $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
     });
+
+    var i;
+    var events = "";
+    for (i = 0; i < 3 /*Num entries*/; i++) {
+      events = events + "<div style='width:60%; height: 15%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px;'><div style='width:45%; height:100%; float:left;'>EVENT NAME</div><div style='width:45%; height:100%; float:right; text-align:right;'>TIME</div></div>"
+    }
+    // if num entries == 0
+
+    events = "<div style='text-align:center;'>No events in next 24 hours. Have a chiller day!</div>"
+
+    $("#events").html(events);
+
 });
 
 window.setInterval(function(){
@@ -44,7 +56,6 @@ function KeyCheck(e) {
       12:00 PM 1/1/11
     </div>
   </div>
-  <div style="margin:0 5% 0 5%; position: absolute; bottom: 1%;">
-    Page 3
+  <div id="events" style="margin:0 5% 0 5%; font-size: 5vh; position: absolute; bottom: 1%; height:70%; width:90%;">
   </div>
 </div>
