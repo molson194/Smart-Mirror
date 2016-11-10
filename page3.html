@@ -4,7 +4,12 @@ html, body {
   margin: 0;
 }
 </style>
+
+<meta name="google-signin-client_id" content="593428568477-kfk8jggviu6h69l3c19gmn6pcl5e8792.apps.googleusercontent.com">
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="https://apis.google.com/js/client.js?onload=checkAuth"></script>
+<script src="https://apis.google.com/js/platform.js" async defer></script>
+
 <script type="text/javascript">
 
 $(document).ready(function() {
@@ -14,17 +19,6 @@ $(document).ready(function() {
     $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
       $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
     });
-
-    var i;
-    var events = "";
-    for (i = 0; i < 3 /*Num entries*/; i++) {
-      events = events + "<div style='width:60%; height: 15%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px;'><div style='width:45%; height:100%; float:left;'>EVENT NAME</div><div style='width:45%; height:100%; float:right; text-align:right;'>TIME</div></div>"
-    }
-    // if num entries == 0
-
-    events = "<div style='text-align:center;'>No events in next 24 hours. Have a chiller day!</div>"
-
-    $("#events").html(events);
 
 });
 
@@ -37,16 +31,139 @@ document.onkeyup = KeyCheck;
 
 function KeyCheck(e) {
   var KeyID = (window.event) ? event.keyCode : e.keyCode;
-	switch(KeyID) {
+  switch(KeyID) {
     case 37:
       window.location = "page2.html";
       break;
     case 39:
-		  window.location = "page1.html";
-		  break;
-	}
+      window.location = "page1.html";
+      break;
+  }
 }
+
+      // Your Client ID can be retrieved from your project in the Google
+      // Developer Console, https://console.developers.google.com
+      var CLIENT_ID = '593428568477-kfk8jggviu6h69l3c19gmn6pcl5e8792.apps.googleusercontent.com';
+
+      var SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"];
+
+      /**
+       * Function called once user has successfully logged in
+       *
+       */
+      function onSignIn(googleUser) {
+        // Show sign out button
+        var signOutButton = document.getElementById("sign-out-button");
+        signOutButton.style.display = 'inline';
+        
+        // Load calendar
+        loadCalendarApi();
+        
+        // other info we can get
+        /*
+        var profile = googleUser.getBasicProfile();
+        console.log('ID: ' + profile.getId()); // Do not send to your backend! Use an ID token instead.
+        console.log('Name: ' + profile.getName());
+        console.log('Image URL: ' + profile.getImageUrl());
+        console.log('Email: ' + profile.getEmail());
+        */
+      }
+
+      /**
+       * Sign out in response to user clicking sign out button.
+       *
+       * @param {Event} event Button click event.
+       */
+      function handleSignOutClick(event) {
+        var auth2 = gapi.auth2.getAuthInstance();
+        auth2.signOut().then(function () {
+          console.log('User signed out.');
+          // Hide sign out button       
+          var signOutButton = document.getElementById("sign-out-button");
+          signOutButton.style.display = 'none';
+
+          // Clear calendar
+          clearEvents();
+        });
+
+        return false;
+      }
+
+      /**
+       * Load Google Calendar client library. List upcoming events
+       * once client library is loaded.
+       */
+      function loadCalendarApi() {
+        gapi.client.load('calendar', 'v3', listUpcomingEvents);
+      }
+
+      /**
+       * Print the summary and start datetime/date of the next 3 events in
+       * the authorized user's calendar. If no events are found an
+       * appropriate message is printed.
+       */
+      function listUpcomingEvents() {
+        var today = new Date();
+        var tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        console.log("today: %s", today.toISOString());
+        console.log("tomorrow: %s", tomorrow.toISOString());
+
+        var request = gapi.client.calendar.events.list({
+          'calendarId': 'primary',
+          'timeMin': today.toISOString(),
+          'timeMax' : tomorrow.toISOString(),
+          'showDeleted': false,
+          'singleEvents': true,
+          'maxResults': 10,
+          'orderBy': 'startTime'
+        });
+
+        request.execute(function(resp) {
+          var events = resp.items;
+          
+          if (events.length > 0) {
+            for (i = 0; i < 3; i++) { //for (i = 0; i < events.length; i++) {
+              var event = events[i];
+              var when = event.start.dateTime;
+              if (!when) {
+                when = event.start.date;
+              }
+              appendEvent(event.summary, when, "");
+
+            }
+          } else {
+            appendEvent('No events in next 24 hours. Have a chiller day!', "", "");
+          }
+
+        });
+      }
+
+      /**
+       * Append a event element to the body containing the given message
+       * as its text node.
+       */
+      function appendEvent(description, startDate, endDate) {
+        console.log(description);
+        console.log(startDate);
+        var eventsDiv = document.getElementById('events');
+        var eventInnerHTML = "<div style='width:60%; height: 15%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px;'><div style='width:45%; height:100%; float:left;'>"+description+"</div><div style='width:45%; height:100%; float:right; text-align:right;'>"+startDate+"</div></div>";
+        var eventDiv = document.createElement('div');
+        eventDiv.innerHTML = eventInnerHTML;
+        eventsDiv.appendChild(eventDiv);
+      }
+
+
+      function clearEvents() {
+        var eventsDiv = document.getElementById('events');
+        //eventDiv.innerHTML = ''; //slower
+        while (eventsDiv.firstChild) {
+          eventsDiv.removeChild(eventsDiv.firstChild);
+        }
+      }
+
 </script>
+
 <div style="color: white; background-color:black; height:100%; width:100%; display:inline-block; margin:0px 0px 0px 0px;">
   <div style="width:100%; height:5%; font-size: 5vh; margin-top:1%; margin-bottom:1%;">
     <div id="temp" style="width:45%; height:100%; float:left; margin-left:5%;">
@@ -56,6 +173,10 @@ function KeyCheck(e) {
       12:00 PM 1/1/11
     </div>
   </div>
+  <div class="g-signin2" data-onsuccess="onSignIn"></div>
+    <button style="display:none" id="sign-out-button" onclick="handleSignOutClick(event)">
+        Sign Out
+    </button>
   <div id="events" style="margin:0 5% 0 5%; font-size: 5vh; position: absolute; bottom: 1%; height:70%; width:90%;">
   </div>
 </div>
