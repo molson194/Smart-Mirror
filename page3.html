@@ -13,10 +13,10 @@ html, body {
 <script type="text/javascript">
 
 $(document).ready(function() {
-    var date = new Date(Date.now() - 5 * 3600 * 1000);
+    var date = new Date(Date.now());
    // $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
-    $("#time").html(date.toLocaleString());
-
+    $("#time").html(date.toLocaleTimeString());
+    $("#date").html(date.toLocaleDateString());
 
     $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
       $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
@@ -25,8 +25,9 @@ $(document).ready(function() {
 });
 
 window.setInterval(function(){
-  var date = new Date(Date.now() - 5 * 3600 * 1000);
-  $("#time").html(date.toLocaleString());
+  var date = new Date(Date.now());
+  $("#time").html(date.toLocaleTimeString());
+  $("#date").html(date.toLocaleDateString());
   //$("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
 }, 1000);
 
@@ -179,10 +180,12 @@ function KeyCheck(e) {
       12:00 PM 1/1/11
     </div>
   </div>
-  <div class="g-signin2" data-onsuccess="onSignIn"></div>
+ 
+  <div id="events" style="margin:0 5% 0 5%; font-size: 5vh; height:70%; width:90%; padding-top: 50px">
+  </div>
+   <div class="g-signin2" data-onsuccess="onSignIn"></div>
     <button style="display:none" id="sign-out-button" onclick="handleSignOutClick(event)">
         Sign Out
     </button>
-  <div id="events" style="margin:0 5% 0 5%; font-size: 5vh; position: absolute; bottom: 1%; height:70%; width:90%;">
-  </div>
+  <div id="date" style="width:100%; height: 5%; font-size: 5vh; text-align:center"></div>
 </div>

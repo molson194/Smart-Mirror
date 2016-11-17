@@ -8,8 +8,10 @@ html, body {
 <script type="text/javascript">
 
 $(document).ready(function() {
-    var date = new Date(Date.now() - 5 * 3600 * 1000);
-    $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+    var date = new Date(Date.now());
+    //$("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+    $("#time").html(date.toLocaleTimeString());
+    $("#date").html(date.toLocaleDateString());
 
     $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
       $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
@@ -23,9 +25,12 @@ $(document).ready(function() {
 });
 
 window.setInterval(function(){
-  var date = new Date(Date.now() - 5 * 3600 * 1000);
-  $("#time").html(date.getUTCHours() + ":" + ("0" + date.getUTCMinutes()).slice(-2) + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
-}, 5000);
+  var date = new Date(Date.now());
+ // $("#time").html(date.getUTCHours() + ":" + ("0" + date.getUTCMinutes()).slice(-2) + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+  $("#time").html(date.toLocaleTimeString());
+  $("#date").html(date.toLocaleDateString());
+
+}, 1000);
 
 document.onkeyup = KeyCheck;
 
@@ -50,7 +55,8 @@ function KeyCheck(e) {
       12:00 PM 1/1/11
     </div>
   </div>
-  <div style="margin:0 5% 0 5%; position: absolute; bottom: 1%; height:70%; width:100%; margin-bottom:3%">
+  <div style="margin:0 5% 0 5%; padding-top:50px; height:70%; width:100%; margin-bottom:3%">
     <iframe id="video" width="90%" height="100%" src="https://www.youtube.com/embed/ueBAwstKgxE" frameborder="0" allowfullscreen></iframe>
   </div>
+  <div id="date" style="width:100%; height: 5%; font-size: 5vh; text-align:center"></div>
 </div>
