@@ -14,7 +14,9 @@ html, body {
 
 $(document).ready(function() {
     var date = new Date(Date.now() - 5 * 3600 * 1000);
-    $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+   // $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+    $("#time").html(date.toLocaleString());
+
 
     $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
       $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
@@ -24,8 +26,9 @@ $(document).ready(function() {
 
 window.setInterval(function(){
   var date = new Date(Date.now() - 5 * 3600 * 1000);
-  $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
-}, 5000);
+  $("#time").html(date.toLocaleString());
+  //$("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
+}, 1000);
 
 document.onkeyup = KeyCheck;
 
@@ -123,13 +126,14 @@ function KeyCheck(e) {
           var events = resp.items;
           
           if (events.length > 0) {
-            for (i = 0; i < 3; i++) { //for (i = 0; i < events.length; i++) {
+            for (i = 0; i < Math.min(events.length,3); i++) { //for (i = 0; i < events.length; i++) {
               var event = events[i];
               var when = event.start.dateTime;
               if (!when) {
                 when = event.start.date;
               }
-              appendEvent(event.summary, when, "");
+              var startDate = new Date(when);
+              appendEvent(event.summary, startDate.toLocaleString(), "");
 
             }
           } else {
@@ -146,8 +150,10 @@ function KeyCheck(e) {
       function appendEvent(description, startDate, endDate) {
         console.log(description);
         console.log(startDate);
+        var maxLength = 50;
+        var shortDescription = description.substring(0, maxLength);
         var eventsDiv = document.getElementById('events');
-        var eventInnerHTML = "<div style='width:60%; height: 15%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px;'><div style='width:45%; height:100%; float:left;'>"+description+"</div><div style='width:45%; height:100%; float:right; text-align:right;'>"+startDate+"</div></div>";
+        var eventInnerHTML = "<div style='width:60%; height: 15%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px; font-size:25px'><div style='width:45%; height:100%; float:left; padding-top:10px; padding-bottom:10px;'>"+shortDescription+"</div><div style='width:45%; height:100%; float:right; text-align:right; padding-top:10px; padding-bottom:10px;'>"+startDate+"</div></div>";
         var eventDiv = document.createElement('div');
         eventDiv.innerHTML = eventInnerHTML;
         eventsDiv.appendChild(eventDiv);
