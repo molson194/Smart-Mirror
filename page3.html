@@ -13,7 +13,7 @@ html, body {
 <script type="text/javascript">
 
 $(document).ready(function() {
-    var date = new Date(Date.now() - 5 * 3600 * 1000);
+    var date = new Date(Date.now());
    // $("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
     $("#time").html(date.toLocaleTimeString());
     $("#date").html(date.toLocaleDateString());
@@ -25,7 +25,7 @@ $(document).ready(function() {
 });
 
 window.setInterval(function(){
-  var date = new Date(Date.now() - 5 * 3600 * 1000);
+  var date = new Date(Date.now());
   $("#time").html(date.toLocaleTimeString());
   $("#date").html(date.toLocaleDateString());
   //$("#time").html(date.getUTCHours() + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
