@@ -56,7 +56,8 @@ char phAvg; // photoresistor running average
 char runningAvgN = 32; // number of values in running average
 char runningAvgShift = 5;
 char terminateCode; // boolean to track when user terminates code
-char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
+//char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
+char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page1.html &";
 
 /* Functions */
 int rpi_init(); // initialize GPIOs, threads, interrupts, and variables
@@ -71,7 +72,7 @@ int main(void) {
 	
 	if (rpi_init() != 0)
 		return 1;
-		
+	system("python -m SimpleHTTPServer 8000 &");
 	system(firefoxCall);
 	
 	while(!terminateCode) {
@@ -87,7 +88,7 @@ int main(void) {
 		}
 
 		// TEMPORARY
-		printf("Web Page %d\n", webPage);
+		printf("Web Page %c\n", webPage);
 		printf("left: %d\n", countLeft);
 		printf("right: %d\n", countRight);
 		printf("center: %d\n", countCenter);
@@ -221,7 +222,7 @@ PI_THREAD(btnLeftThread) {
 			if(webPage>'1'){
 				// Move app page left
 				webPage--;
-				firefoxCall[53] = webPage;
+				firefoxCall[46] = webPage;
 				system(firefoxCall);
 			}
 			if(millis()-timePressed >= DASH) {
@@ -253,7 +254,7 @@ PI_THREAD(btnRightThread) {
 			countRight++;
 			if(webPage<'3'){
 				webPage++;
-				firefoxCall[53] = webPage;
+				firefoxCall[46] = webPage;
 				system(firefoxCall);
 				// Move app page right
 			}
