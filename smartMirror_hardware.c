@@ -4,7 +4,7 @@
  * Handles two photoresistor reads (polling in one thread)
  *
  * @author Saeed Alrahma, Jeremy Schreck, Matt Olson
- * Nov 8, 2016
+ * Nov 19, 2016
  */
 
 #include <wiringPi.h>
@@ -16,20 +16,23 @@
 
 /* GPIO Pins */
 #define CLK 4
-#define BUTTON_LEFT 5
-#define BUTTON_RIGHT 6
-#define BUTTON_CENTER 13
-#define LED1 17
-#define LED2 18
-#define LED3 27
-#define LED4 22
-#define LED5 23
-#define LED6 24
-#define PHRES_A3 7
-#define PHRES_A4 1
-#define PHRES_A5 16
-#define PHRES_A6 20
-#define PHRES_A7 21
+#define BUTTON_LEFT 10
+#define BUTTON_RIGHT 11
+#define BUTTON_CENTER 9
+#define LED1 0
+#define LED2 5
+//#define LED3 27
+//#define LED4 22
+//#define LED5 23
+//#define LED6 24
+#define RED 18
+#define GREEN 13
+#define BLUE 12
+#define PHRES_A3 2
+#define PHRES_A4 3
+#define PHRES_A5 14
+#define PHRES_A6 15
+#define PHRES_A7 17
 // #define PHRES_B3
 // #define PHRES_B4
 // #define PHRES_B5
@@ -37,8 +40,8 @@
 // #define PHRES_B7
 
 /* Constants */
-#define LED_SWITCH_TIME 20000 // in milliseconds
-#define LED_BLINK_TIME 1000 // in milliseconds
+#define LED_SWITCH_TIME 2000 // in milliseconds
+#define LED_BLINK_TIME 2000 // in milliseconds
 #define LED_DELAY_PERIOD 500 // in milliseconds
 #define PHRES_READ_PERIOD 100 // in milliseconds
 #define DASH 400 // in milliseconds
@@ -47,14 +50,11 @@
 volatile int countLeft = 0;
 volatile int countRight = 0;
 volatile int countCenter = 0;
-// unsigned long btnLeftTime = 0;
-// unsigned long btnRightTime = 0;
-// unsigned long btnCenterTime = 0;
 char webPage; // current web app page (1, 2, or 3)
 char ledThreadRunning; // boolean for led thread
-char phAvg; // photoresistor running average
-char runningAvgN = 32; // number of values in running average
-char runningAvgShift = 5;
+short phAvg; // photoresistor running average
+char runningAvgN = 8; // number of values in running average
+char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused)
 char terminateCode; // boolean to track when user terminates code
 //char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
 char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page1.html &";
@@ -64,7 +64,8 @@ int rpi_init(); // initialize GPIOs, threads, interrupts, and variables
 void INThandler(int sig); // handles "CTRL-c" exit
 int ledDelay(int led, int delayDuration); // executes timer delay between LEDs turning on
 PI_THREAD(ledThread);
-
+void turnOffLEDs(); // turns off all LEDs
+void turnOnLEDs(); // turns on all LEDs
 
 // Main Process
 int main(void) {	
@@ -76,7 +77,7 @@ int main(void) {
 	system(firefoxCall);
 	
 	while(!terminateCode) {
-		if((webPage==2) && !ledThreadRunning) {
+		if((webPage=='2') && !ledThreadRunning) {
 			// We are on youtube page. Start LED timer!
 			if(piThreadCreate(ledThread) != 0){
 				fprintf(stderr, "Unable to start LED thread: $s\n", strerror(errno));
@@ -107,7 +108,7 @@ int main(void) {
  *	sets exit boolean
  */
 void INThandler(int sig) {
-	digitalWriteByte(0); // turn off all LEDs
+	turnOffLEDs(); // turn off all LEDs (stop output)
 	terminateCode = 1; // exit infinite loop	
 	// exit(0);
 }
@@ -122,8 +123,8 @@ int ledDelay(int led, int delayDuration) {
 	// delay and check app page regularly
 	for(;i<delayDuration; i+=LED_DELAY_PERIOD) {
 		delay(LED_DELAY_PERIOD); // partial delay
-		if(webPage!=2) {
-			digitalWriteByte(0); // turn off all LEDs
+		if(webPage!='2') {
+			turnOffLEDs(); // turn off all LEDs
 			ledThreadRunning = 0; // led thread will exit
 			return 1; // app page changed
 		}
@@ -151,27 +152,32 @@ PI_THREAD(ledThread) {
 	digitalWrite(LED1, HIGH);
 	if(ledDelay(2, LED_SWITCH_TIME)) return;
 	digitalWrite(LED2, HIGH);
-	if(ledDelay(3, LED_SWITCH_TIME)) return;
+	/*if(ledDelay(3, LED_SWITCH_TIME)) return;
 	digitalWrite(LED3, HIGH);
 	if(ledDelay(4, LED_SWITCH_TIME)) return;
 	digitalWrite(LED4, HIGH);
 	if(ledDelay(5, LED_SWITCH_TIME)) return;
 	digitalWrite(LED5, HIGH);
 	if(ledDelay(6, LED_SWITCH_TIME)) return;
-	digitalWrite(LED6, HIGH);
+	digitalWrite(LED6, HIGH);*/
 
 	// Blink for 20 seconds
-	char leds = 0xff;
 	int i = 0;
-	for (; i<LED_SWITCH_TIME; i+=LED_BLINK_TIME) {
+	for (; i<LED_SWITCH_TIME; i+=LED_BLINK_TIME+LED_BLINK_TIME) {
 		if(ledDelay(10, LED_BLINK_TIME)) return;
-		leds = !leds;
-		digitalWriteByte(leds); // control all 6 LEDs
-		// TO-DO: watch out I'm changing value of 2 more GPIO
+		turnOnLEDs(); // turn on all LEDs
+		if(ledDelay(10, LED_BLINK_TIME)) return;
+		turnOffLEDs(); // turn off all LEDs
 	}
 
 	// turn all LEDs off
-	digitalWriteByte(0); // writes to first 8 gpio in wiring Pi
+	turnOffLEDs(); // writes to first 8 gpio in wiring Pi
+	
+	// delay until web page changed
+	while (webPage == '2') {
+		ledDelay(11, LED_BLINK_TIME);
+	}
+	
 	ledThreadRunning = 0; // unblock led thread
 }
 
@@ -191,12 +197,24 @@ PI_THREAD(phresThread) {
 		// unsigned int readingAvg = (phresA+phresB)<<1; // add and divide by 2
 
 		// recalculate running average
-		phAvg -= (phAvg<<runningAvgShift); // subtract average reading
-		phAvg += (phresA<<runningAvgShift); // add new reading
+		phAvg -= (phAvg>>runningAvgShift); // subtract average reading
+		phAvg += (phresA>>runningAvgShift); // add new reading
 		// phAvg += (readingAvg<<runningAvgShift); // add new reading
 
 		// TO-DO: if brightness changed --> change screen brightness
 		//printf("Photoresistor A: %d\n", phresA);
+		
+		// LED color
+		if (ledThreadRunning==1) {
+			pwmWrite(BLUE, 1023-(phAvg*2));
+			pwmWrite(RED, 600-(phAvg*2));
+			pwmWrite(GREEN, 400-(phAvg*2));
+		} else { // keep LOW output while LEDs off
+			pwmWrite(RED, 0);
+			pwmWrite(GREEN, 0);
+			pwmWrite(BLUE, 0);
+		}
+		
 		
 		// wait until next period
 		delay(PHRES_READ_PERIOD);
@@ -301,8 +319,6 @@ PI_THREAD(btnCenterThread) {
 	}
 }
 
-
-
 /** Initialize i/o, interrupts, and variables
  *
  */
@@ -328,10 +344,13 @@ int rpi_init(){
 	pinMode(BUTTON_CENTER, INPUT);
 	pinMode(LED1, OUTPUT);
 	pinMode(LED2, OUTPUT);
-	pinMode(LED3, OUTPUT);
+	/*pinMode(LED3, OUTPUT);
 	pinMode(LED4, OUTPUT);
 	pinMode(LED5, OUTPUT);
-	pinMode(LED6, OUTPUT);
+	pinMode(LED6, OUTPUT);*/
+	pinMode(RED, PWM_OUTPUT);
+	pinMode(GREEN, PWM_OUTPUT);
+	pinMode(BLUE, PWM_OUTPUT);
 	pinMode(PHRES_A3, INPUT);
 	pinMode(PHRES_A4, INPUT);
 	pinMode(PHRES_A5, INPUT);
@@ -371,4 +390,32 @@ int rpi_init(){
 	}
 
 	return 0;
+}
+
+/** Turns off all LEDs
+ * 
+ */
+void turnOffLEDs() {
+	digitalWrite(LED1, LOW);
+	digitalWrite(LED2, LOW);
+	/*digitalWrite(LED1, LOW);
+	digitalWrite(LED1, LOW);
+	digitalWrite(LED1, LOW);
+	digitalWrite(LED1, LOW);
+	digitalWrite(LED1, LOW);
+	digitalWrite(LED1, LOW);*/
+}
+
+/** Turns on all LEDs
+ * 
+ */
+void turnOnLEDs() {
+	digitalWrite(LED1, HIGH);
+	digitalWrite(LED2, HIGH);
+	/*digitalWrite(LED1, HIGH);
+	digitalWrite(LED1, HIGH);
+	digitalWrite(LED1, HIGH);
+	digitalWrite(LED1, HIGH);
+	digitalWrite(LED1, HIGH);
+	digitalWrite(LED1, HIGH);*/
 }
