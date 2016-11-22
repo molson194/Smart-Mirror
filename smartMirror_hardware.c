@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <math.h>
+#include <string.h>
 
 /* GPIO Pins */
 #define CLK 4 // Phyiscal 7
@@ -51,6 +52,7 @@
 #define PHRES_READ_PERIOD 100 // in milliseconds
 #define BUTTON_POLLING_TIME 5 // in milliseconds
 #define BUTTON_WAIT 25 // in milliseconds
+const char USER1_PASSWORD[] = "LCRLCR";
 
 /* Global Variables */
 // volatile int countLeft = 0;
@@ -63,7 +65,7 @@ short phAvg; // photoresistor running average
 char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
 //char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
-char firefoxCall[];
+char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page0.html &";;
 char password[6];
 char pwInd;
 
@@ -93,17 +95,15 @@ int main(void) {
 		if (webPage == '0') {
 			if (pwInd == 6)
 			{
-				switch(password) {
-					case "LCRLCR":
-						printf("%s Logged in!\n", password);
-						// TODO: map password to user
-						// TODO: set all variables to user's info
-						firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page1.html &";
-						system(firefoxCall);
-						webPage = '1';
-						break;
-					default:
-						pwInd = 0; // reset password entry
+				if(strncmp(password, USER1_PASSWORD, 6) == 0) {
+					printf("%s Logged in!\n", USER1_PASSWORD);
+					printf("I entered %s\n", password);
+					// TODO: set all variables to user's info
+					webPage = '1';
+					firefoxCall[46] = webPage;
+					system(firefoxCall);
+				} else {
+					pwInd = 0; // reset password entry
 				}
 			}
 		}
@@ -126,6 +126,7 @@ int main(void) {
 		// printf("right: %d\n", countRight);
 		// printf("center: %d\n", countCenter);
 		printf("phAvg: %d\n", phAvg);
+		printf("Password entered so far: %s\n", password);
 		// countLeft = 0;
 		// countRight = 0;
 		// countCenter = 0;
@@ -303,7 +304,7 @@ PI_THREAD(btnRightThread) {
 				}
 				// button released
 				// countRight++;
-				if ((webPage<'3') && (webPage != 0)){
+				if ((webPage<'3') && (webPage != '0')){
 					// Move app page right
 					webPage++;
 					firefoxCall[46] = webPage;
@@ -341,7 +342,7 @@ PI_THREAD(btnCenterThread) {
 				}
 				// password input
 				else if ((webPage == '0') && (pwInd < 6)) {
-					password[pwInd] = 'R';
+					password[pwInd] = 'C';
 					pwInd++;
 				}
 			}
@@ -357,7 +358,7 @@ int rpi_init(){
 	signal(SIGINT, INThandler); // handle exit
 
 	// Initialize variables
-	firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/welcome.html &"; // initialize to welcome page
+	//firefoxCall = "sudo -u $SUDO_USER firefox localhost:8000/page0.html &"; // initialize to welcome page
 	webPage = '0';
 	ledThreadRunning = 0;
 	phAvg = 64; // initialize to mean (range [0, 127])
