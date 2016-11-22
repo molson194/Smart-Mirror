@@ -53,6 +53,7 @@
 #define BUTTON_POLLING_TIME 5 // in milliseconds
 #define BUTTON_WAIT 25 // in milliseconds
 const char USER1_PASSWORD[] = "LCRLCR";
+const char LINK_PAGE_NUMBER_INDEX = 67;
 
 /* Global Variables */
 // volatile int countLeft = 0;
@@ -65,7 +66,7 @@ short phAvg; // photoresistor running average
 char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
 //char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
-char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page0.html &";;
+char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/Desktop/Smart-Mirror/page0.html &";
 char password[6];
 char pwInd;
 
@@ -100,7 +101,7 @@ int main(void) {
 					printf("I entered %s\n", password);
 					// TODO: set all variables to user's info
 					webPage = '1';
-					firefoxCall[46] = webPage;
+					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
 					system(firefoxCall);
 				} else {
 					pwInd = 0; // reset password entry
@@ -275,7 +276,7 @@ PI_THREAD(btnLeftThread) {
 				if(webPage>'1'){
 					// Move app page left
 					webPage--;
-					firefoxCall[46] = webPage;
+					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
 					system(firefoxCall);
 				}
 				// password input
@@ -307,7 +308,7 @@ PI_THREAD(btnRightThread) {
 				if ((webPage<'3') && (webPage != '0')){
 					// Move app page right
 					webPage++;
-					firefoxCall[46] = webPage;
+					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
 					system(firefoxCall);
 				}
 				// password input
