@@ -64,6 +64,8 @@ char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
 //char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
 char firefoxCall[];
+char password[6];
+char pwInd;
 
 /* Functions */
 int rpi_init(); // initialize GPIOs, threads, interrupts, and variables
@@ -87,6 +89,25 @@ int main(void) {
 
 	// Loop until shutdown
 	while(!terminateCode) {
+		// Password entry step
+		if (webPage == '0') {
+			if (pwInd == 6)
+			{
+				switch(password) {
+					case "LCRLCR":
+						printf("%s Logged in!\n", password);
+						// TODO: map password to user
+						// TODO: set all variables to user's info
+						firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page1.html &";
+						system(firefoxCall);
+						webPage = '1';
+						break;
+					default:
+						pwInd = 0; // reset password entry
+				}
+			}
+		}
+		
 		// Youtube/Video page
 		if((webPage=='2') && !ledThreadRunning) {
 			// Start LED thread/timer!
@@ -256,6 +277,11 @@ PI_THREAD(btnLeftThread) {
 					firefoxCall[46] = webPage;
 					system(firefoxCall);
 				}
+				// password input
+				else if ((webPage == '0') && (pwInd < 6)) {
+					password[pwInd] = 'L';
+					pwInd++;
+				}
 			}
 		}	
 		delay(BUTTON_POLLING_TIME);
@@ -277,11 +303,16 @@ PI_THREAD(btnRightThread) {
 				}
 				// button released
 				// countRight++;
-				if(webPage<'3'){
+				if ((webPage<'3') && (webPage != 0)){
 					// Move app page right
 					webPage++;
 					firefoxCall[46] = webPage;
 					system(firefoxCall);
+				}
+				// password input
+				else if ((webPage == '0') && (pwInd < 6)) {
+					password[pwInd] = 'R';
+					pwInd++;
 				}
 			}
 		}
@@ -308,6 +339,11 @@ PI_THREAD(btnCenterThread) {
 					// TO-DO: handle start/stop video
 					// TO-DO: handle turn on/off tv
 				}
+				// password input
+				else if ((webPage == '0') && (pwInd < 6)) {
+					password[pwInd] = 'R';
+					pwInd++;
+				}
 			}
 		}
 		delay(BUTTON_POLLING_TIME);
@@ -326,7 +362,7 @@ int rpi_init(){
 	ledThreadRunning = 0;
 	phAvg = 64; // initialize to mean (range [0, 127])
 	terminateCode = 0;
-
+	pwInd = 0;
 	// setup wiringPi with BCM_GPIO pin numbering
 	if(wiringPiSetupGpio() < 0) {
 		fprintf(stderr, "Unable to setup wiringPi: $s\n", strerror(errno));
