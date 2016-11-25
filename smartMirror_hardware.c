@@ -1,10 +1,10 @@
 /** Smart Mirror Hardware Code
- * Handles three button (polling in three separate threads)
- * Handles 6 LED (timer in one thread)
- * Handles two photoresistor reads (polling in one thread)
+ * Handles three buttons (polling in three separate threads)
+ * Handles 8 LEDs (timer in a separate thread)
+ * Handles two photoresistor reads (polling in a separate thread)
  *
  * @author Saeed Alrahma, Jeremy Schreck, Matt Olson
- * Nov 19, 2016
+ * Nov 24, 2016
  */
 
 #include <wiringPi.h>
@@ -15,57 +15,64 @@
 #include <math.h>
 
 /* GPIO Pins */
-#define CLK 4
-#define BUTTON_LEFT 10
-#define BUTTON_RIGHT 11
-#define BUTTON_CENTER 9
-#define LED1 0
-#define LED2 5
-//#define LED3 27
-//#define LED4 22
-//#define LED5 23
-//#define LED6 24
-#define RED 18
-#define GREEN 13
-#define BLUE 12
-#define PHRES_A3 2
-#define PHRES_A4 3
-#define PHRES_A5 14
-#define PHRES_A6 15
-#define PHRES_A7 17
-// #define PHRES_B3
-// #define PHRES_B4
-// #define PHRES_B5
-// #define PHRES_B6
-// #define PHRES_B7
+#define CLK 4 // Phyiscal 7
+#define BUTTON_LEFT 10 // Phyiscal 19
+#define BUTTON_RIGHT 11 // Phyiscal 23
+#define BUTTON_CENTER 9 // Phyiscal 21
+
+#define LED1 21 // Phyiscal 40
+#define LED2 20 // Phyiscal 38
+// #define LED3 26 // Phyiscal 37
+// #define LED4 16 // Phyiscal 36
+// #define LED5 19 // Phyiscal 35
+// #define LED6 6 // Phyiscal 31
+// #define LED7 5 // Phyiscal 29
+// #define LED8 0 // Phyiscal 27
+
+#define RED 18 // Phyiscal 12
+#define GREEN 13 // Phyiscal 33
+#define BLUE 12 // Phyiscal 32
+
+#define PHRES_A3 2 // Phyiscal 3
+#define PHRES_A4 3 // Phyiscal 5
+#define PHRES_A5 14 // Phyiscal 8
+#define PHRES_A6 15 // Phyiscal 10
+#define PHRES_A7 17 // Phyiscal 11
+// #define PHRES_B3 27 // Phyiscal 13
+// #define PHRES_B4 22 // Phyiscal 15
+// #define PHRES_B5 23 // Phyiscal 16
+// #define PHRES_B6 24 // Phyiscal 18
+// #define PHRES_B7 25 // Phyiscal 22
 
 /* Constants */
-#define LED_SWITCH_TIME 2000 // in milliseconds
-#define LED_BLINK_TIME 2000 // in milliseconds
+#define LED_SWITCH_TIME 15000 // in milliseconds
+#define LED_BLINK_TIME 1000 // in milliseconds
 #define LED_DELAY_PERIOD 500 // in milliseconds
 #define PHRES_READ_PERIOD 100 // in milliseconds
-#define DASH 400 // in milliseconds
+#define BUTTON_POLLING_TIME 5 // in milliseconds
+#define BUTTON_WAIT 25 // in milliseconds
 
 /* Global Variables */
-volatile int countLeft = 0;
-volatile int countRight = 0;
-volatile int countCenter = 0;
-char webPage; // current web app page (1, 2, or 3)
+// volatile int countLeft = 0;
+// volatile int countRight = 0;
+// volatile int countCenter = 0;
+char webPage; // current web app page (Welcome '0', Weather 1', Youtube '2', or Calendar '3')
 char ledThreadRunning; // boolean for led thread
 short phAvg; // photoresistor running average
-char runningAvgN = 8; // number of values in running average
-char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused)
+// char runningAvgN = 8; // number of values in running average
+char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
 //char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
-char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page1.html &";
+char firefoxCall[];
 
 /* Functions */
 int rpi_init(); // initialize GPIOs, threads, interrupts, and variables
 void INThandler(int sig); // handles "CTRL-c" exit
+PI_THREAD(ledThread); // Thread for LED timing adn control
 int ledDelay(int led, int delayDuration); // executes timer delay between LEDs turning on
-PI_THREAD(ledThread);
 void turnOffLEDs(); // turns off all LEDs
 void turnOnLEDs(); // turns on all LEDs
+void turnOffPWM(); // turns off all PWM outputs
 
 // Main Process
 int main(void) {	
@@ -73,30 +80,34 @@ int main(void) {
 	
 	if (rpi_init() != 0)
 		return 1;
+
+	// Start web app
 	system("python -m SimpleHTTPServer 8000 &");
 	system(firefoxCall);
-	
+
+	// Loop until shutdown
 	while(!terminateCode) {
+		// Youtube/Video page
 		if((webPage=='2') && !ledThreadRunning) {
-			// We are on youtube page. Start LED timer!
+			// Start LED thread/timer!
 			if(piThreadCreate(ledThread) != 0){
 				fprintf(stderr, "Unable to start LED thread: $s\n", strerror(errno));
 				//return 1;
 			} else {
-				ledThreadRunning = 1; // block attempts to start led thread
+				ledThreadRunning = 1; // block attempts to start another led thread
 				printf("Timer started!\n");
 			}
 		}
 
 		// TEMPORARY
 		printf("Web Page %c\n", webPage);
-		printf("left: %d\n", countLeft);
-		printf("right: %d\n", countRight);
-		printf("center: %d\n", countCenter);
+		// printf("left: %d\n", countLeft);
+		// printf("right: %d\n", countRight);
+		// printf("center: %d\n", countCenter);
 		printf("phAvg: %d\n", phAvg);
-		countLeft = 0;
-		countRight = 0;
-		countCenter = 0;
+		// countLeft = 0;
+		// countRight = 0;
+		// countCenter = 0;
 		delay(2000);
 	}
 
@@ -104,11 +115,13 @@ int main(void) {
 }
 
 /** Exit handler
- *	turns off LEDs
+ *	turns off all outputs
  *	sets exit boolean
  */
 void INThandler(int sig) {
 	turnOffLEDs(); // turn off all LEDs (stop output)
+	turnOffPWM();
+	// TODO: turn off clock output
 	terminateCode = 1; // exit infinite loop	
 	// exit(0);
 }
@@ -147,21 +160,25 @@ PI_THREAD(ledThread) {
 	// Turn on one LED every 20 seconds
 	// if webPage changes, turn off LEDs and close thread 
 	if(ledDelay(1, LED_SWITCH_TIME)) return;
-	// TO-DO: do we want to wait longer?
+	// TODO: do we want to wait longer?
 	// How long does the Youtube video take to load/start?
 	digitalWrite(LED1, HIGH);
 	if(ledDelay(2, LED_SWITCH_TIME)) return;
 	digitalWrite(LED2, HIGH);
-	/*if(ledDelay(3, LED_SWITCH_TIME)) return;
-	digitalWrite(LED3, HIGH);
-	if(ledDelay(4, LED_SWITCH_TIME)) return;
-	digitalWrite(LED4, HIGH);
-	if(ledDelay(5, LED_SWITCH_TIME)) return;
-	digitalWrite(LED5, HIGH);
-	if(ledDelay(6, LED_SWITCH_TIME)) return;
-	digitalWrite(LED6, HIGH);*/
+	// if(ledDelay(3, LED_SWITCH_TIME)) return;
+	// digitalWrite(LED3, HIGH);
+	// if(ledDelay(4, LED_SWITCH_TIME)) return;
+	// digitalWrite(LED4, HIGH);
+	// if(ledDelay(5, LED_SWITCH_TIME)) return;
+	// digitalWrite(LED5, HIGH);
+	// if(ledDelay(6, LED_SWITCH_TIME)) return;
+	// digitalWrite(LED6, HIGH);
+	// if(ledDelay(7, LED_SWITCH_TIME)) return;
+	// digitalWrite(LED7, HIGH);
+	// if(ledDelay(8, LED_SWITCH_TIME)) return;
+	// digitalWrite(LED8, HIGH);
 
-	// Blink for 20 seconds
+	// Blink for LED_SWITCH_TIME to indicate timer done
 	int i = 0;
 	for (; i<LED_SWITCH_TIME; i+=LED_BLINK_TIME+LED_BLINK_TIME) {
 		if(ledDelay(10, LED_BLINK_TIME)) return;
@@ -194,27 +211,24 @@ PI_THREAD(phresThread) {
 		// char phresB = (digitalRead(PHRES_B3)<<3)+
 		// 	(digitalRead(PHRES_B4)<<4)+(digitalRead(PHRES_B5)<<5)+
 		// 	(digitalRead(PHRES_B6)<<6)+(digitalRead(PHRES_B7)<<7);
-		// unsigned int readingAvg = (phresA+phresB)<<1; // add and divide by 2
+		// char readingAvg = (phresA>>1)+(phresB>>1); // add and divide by 2
 
 		// recalculate running average
 		phAvg -= (phAvg>>runningAvgShift); // subtract average reading
 		phAvg += (phresA>>runningAvgShift); // add new reading
 		// phAvg += (readingAvg<<runningAvgShift); // add new reading
 
-		// TO-DO: if brightness changed --> change screen brightness
 		//printf("Photoresistor A: %d\n", phresA);
 		
 		// LED color
 		if (ledThreadRunning==1) {
+			// TODO find a good adjustment formula
 			pwmWrite(BLUE, 1023-(phAvg*2));
 			pwmWrite(RED, 600-(phAvg*2));
 			pwmWrite(GREEN, 400-(phAvg*2));
 		} else { // keep LOW output while LEDs off
-			pwmWrite(RED, 0);
-			pwmWrite(GREEN, 0);
-			pwmWrite(BLUE, 0);
+			turnOffPWM();
 		}
-		
 		
 		// wait until next period
 		delay(PHRES_READ_PERIOD);
@@ -226,31 +240,25 @@ PI_THREAD(btnLeftThread) {
 	piHiPri(90); // high priority
 	while(1) {
 		while(digitalRead(BUTTON_LEFT)==1) {
-			// button pressed (block next button presses)
-			unsigned long timePressed = millis();
-			delay(30); // min button press duration
-			while (digitalRead(BUTTON_LEFT)==1) {
-				// wait for button release
-				delay(30); // depends on our specs
-				// TO-DO: ignore false presses
-				// TO-DO: ignore other presses while handling press
+			// TO-DO: ignore other presses while handling press
+			// button pressed (block bouncing)
+			delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
+			if (digitalRead(BUTTON_LEFT)==1) { // ignore if pressed less than 30 ms
+				while (digitalRead(BUTTON_LEFT)==1) {
+					// wait for button release
+					delay(BUTTON_WAIT); // depends on our specs
+				}
+				// button released
+				// countLeft++;
+				if(webPage>'1'){
+					// Move app page left
+					webPage--;
+					firefoxCall[46] = webPage;
+					system(firefoxCall);
+				}
 			}
-			// button released
-			countLeft++;
-			if(webPage>'1'){
-				// Move app page left
-				webPage--;
-				firefoxCall[46] = webPage;
-				system(firefoxCall);
-			}
-			if(millis()-timePressed >= DASH) {
-				// button press was a DASH
-			} else {
-				// button press was a DOT
-			}
-			// wait (unblock) for next button press
-		}
-		delay(5); // polling time
+		}	
+		delay(BUTTON_POLLING_TIME);
 	}
 }
 
@@ -259,31 +267,25 @@ PI_THREAD(btnRightThread) {
 	piHiPri(90); // high priority
 	while(1) {
 		while(digitalRead(BUTTON_RIGHT)==1) {
-			// button pressed (block next button presses)
-			unsigned long timePressed = millis();
-			delay(30); // min button press duration
-			while (digitalRead(BUTTON_RIGHT)==1) {
-				// wait for button release
-				delay(30); // depends on our specs
-				// TO-DO: ignore false presses
-				// TO-DO: ignore other presses while handling press
+			// TO-DO: ignore other presses while handling press
+			// button pressed (block bouncing)
+			delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
+			if (digitalRead(BUTTON_RIGHT)==1) { // ignore if pressed less than 30 ms
+				while (digitalRead(BUTTON_RIGHT)==1) {
+					// wait for button release
+					delay(BUTTON_WAIT); // depends on our specs
+				}
+				// button released
+				// countRight++;
+				if(webPage<'3'){
+					// Move app page right
+					webPage++;
+					firefoxCall[46] = webPage;
+					system(firefoxCall);
+				}
 			}
-			// button released
-			countRight++;
-			if(webPage<'3'){
-				webPage++;
-				firefoxCall[46] = webPage;
-				system(firefoxCall);
-				// Move app page right
-			}
-			if(millis()-timePressed >= DASH) {
-				// button press was a DASH
-			} else {
-				// button press was a DOT
-			}
-			// wait (unblock) for next button press
 		}
-		delay(5); // polling time
+		delay(BUTTON_POLLING_TIME);
 	}
 }
 
@@ -292,43 +294,37 @@ PI_THREAD(btnCenterThread) {
 	piHiPri(90); // high priority
 	while(1) {
 		while(digitalRead(BUTTON_CENTER)==1) {
-			// button pressed (block next button presses)
-			unsigned long timePressed = millis();
-			delay(30); // min button press duration
-			while (digitalRead(BUTTON_CENTER)==1) {
-				// wait for button release
-				delay(30); // depends on our specs
-				// TO-DO: ignore false presses
-				// TO-DO: ignore other presses while handling press
+			// TO-DO: ignore other presses while handling press
+			// button pressed (block bouncing)
+			delay(BUTTON_WAIT); /// min button press duration (WAIT + POLLING)
+			if (digitalRead(BUTTON_CENTER)==1) { // ignore if pressed less than 30 ms
+				while (digitalRead(BUTTON_CENTER)==1) {
+					// wait for button release
+					delay(BUTTON_WAIT); // depends on our specs
+				}
+				// button released
+				// countCenter++;
+				if(webPage=='2'){
+					// TO-DO: handle start/stop video
+					// TO-DO: handle turn on/off tv
+				}
 			}
-			// button released
-			countCenter++;
-			if(webPage=='2'){
-				// start/stop video
-				// TO-DO: handle start/stop video
-				// TO-DO: handle turn on/off tv
-			}
-			if(millis()-timePressed >= DASH) {
-				// button press was a DASH
-			} else {
-				// button press was a DOT
-			}
-			// wait (unblock) for next button press
 		}
-		delay(5); // polling time
+		delay(BUTTON_POLLING_TIME);
 	}
 }
 
-/** Initialize i/o, interrupts, and variables
+/** Initialize i/o, threads, and variables
  *
  */
 int rpi_init(){
 	signal(SIGINT, INThandler); // handle exit
 
 	// Initialize variables
-	webPage = '1';
+	firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/welcome.html &"; // initialize to welcome page
+	webPage = '0';
 	ledThreadRunning = 0;
-	phAvg = 64;
+	phAvg = 64; // initialize to mean (range [0, 127])
 	terminateCode = 0;
 
 	// setup wiringPi with BCM_GPIO pin numbering
@@ -344,10 +340,12 @@ int rpi_init(){
 	pinMode(BUTTON_CENTER, INPUT);
 	pinMode(LED1, OUTPUT);
 	pinMode(LED2, OUTPUT);
-	/*pinMode(LED3, OUTPUT);
-	pinMode(LED4, OUTPUT);
-	pinMode(LED5, OUTPUT);
-	pinMode(LED6, OUTPUT);*/
+	// pinMode(LED3, OUTPUT);
+	// pinMode(LED4, OUTPUT);
+	// pinMode(LED5, OUTPUT);
+	// pinMode(LED6, OUTPUT);
+	// pinMode(LED7, OUTPUT);
+	// pinMode(LED8, OUTPUT);
 	pinMode(RED, PWM_OUTPUT);
 	pinMode(GREEN, PWM_OUTPUT);
 	pinMode(BLUE, PWM_OUTPUT);
@@ -398,12 +396,12 @@ int rpi_init(){
 void turnOffLEDs() {
 	digitalWrite(LED1, LOW);
 	digitalWrite(LED2, LOW);
-	/*digitalWrite(LED1, LOW);
-	digitalWrite(LED1, LOW);
-	digitalWrite(LED1, LOW);
-	digitalWrite(LED1, LOW);
-	digitalWrite(LED1, LOW);
-	digitalWrite(LED1, LOW);*/
+	/*digitalWrite(LED3, LOW);
+	digitalWrite(LED4, LOW);
+	digitalWrite(LED5, LOW);
+	digitalWrite(LED6, LOW);
+	digitalWrite(LED7, LOW);
+	digitalWrite(LED8, LOW);*/
 }
 
 /** Turns on all LEDs
@@ -412,10 +410,19 @@ void turnOffLEDs() {
 void turnOnLEDs() {
 	digitalWrite(LED1, HIGH);
 	digitalWrite(LED2, HIGH);
-	/*digitalWrite(LED1, HIGH);
-	digitalWrite(LED1, HIGH);
-	digitalWrite(LED1, HIGH);
-	digitalWrite(LED1, HIGH);
-	digitalWrite(LED1, HIGH);
-	digitalWrite(LED1, HIGH);*/
+	/*digitalWrite(LED3, HIGH);
+	digitalWrite(LED4, HIGH);
+	digitalWrite(LED5, HIGH);
+	digitalWrite(LED6, HIGH);
+	digitalWrite(LED7, HIGH);
+	digitalWrite(LED8, HIGH);*/
+}
+
+/** Turns off all PWMs
+ * 
+ */
+void turnOffPWM() {
+	pwmWrite(RED, 0);
+	pwmWrite(GREEN, 0);
+	pwmWrite(BLUE, 0);
 }
