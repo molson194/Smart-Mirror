@@ -39,11 +39,11 @@
 #define PHRES_A5 14 // Phyiscal 8
 #define PHRES_A6 15 // Phyiscal 10
 #define PHRES_A7 17 // Phyiscal 11
-// #define PHRES_B3 27 // Phyiscal 13
-// #define PHRES_B4 22 // Phyiscal 15
-// #define PHRES_B5 23 // Phyiscal 16
-// #define PHRES_B6 24 // Phyiscal 18
-// #define PHRES_B7 25 // Phyiscal 22
+#define PHRES_B3 27 // Phyiscal 13
+#define PHRES_B4 22 // Phyiscal 15
+#define PHRES_B5 23 // Phyiscal 16
+#define PHRES_B6 24 // Phyiscal 18
+#define PHRES_B7 25 // Phyiscal 22
 
 /* Constants */
 #define LED_SWITCH_TIME 15000 // in milliseconds
@@ -231,17 +231,19 @@ PI_THREAD(phresThread) {
 		char phresA = (digitalRead(PHRES_A3)<<3)+
 			(digitalRead(PHRES_A4)<<4)+(digitalRead(PHRES_A5)<<5)+
 			(digitalRead(PHRES_A6)<<6)+(digitalRead(PHRES_A7)<<7);
-		// char phresB = (digitalRead(PHRES_B3)<<3)+
-		// 	(digitalRead(PHRES_B4)<<4)+(digitalRead(PHRES_B5)<<5)+
-		// 	(digitalRead(PHRES_B6)<<6)+(digitalRead(PHRES_B7)<<7);
-		// char readingAvg = (phresA>>1)+(phresB>>1); // add and divide by 2
+		char phresB = (digitalRead(PHRES_B3)<<3)+
+			(digitalRead(PHRES_B4)<<4)+(digitalRead(PHRES_B5)<<5)+
+			(digitalRead(PHRES_B6)<<6)+(digitalRead(PHRES_B7)<<7);
+		char readingAvg = (phresA>>1)+(phresB>>1); // add and divide by 2
 
 		// recalculate running average
 		phAvg -= (phAvg>>runningAvgShift); // subtract average reading
-		phAvg += (phresA>>runningAvgShift); // add new reading
-		// phAvg += (readingAvg<<runningAvgShift); // add new reading
+		//phAvg += (phresA>>runningAvgShift); // add new reading
+		phAvg += (readingAvg>>runningAvgShift); // add new reading
 
 		//printf("Photoresistor A: %d\n", phresA);
+		//printf("Photoresistor B: %d\n", phresB);
+		//printf("Photoresistor Avg: %d\n", readingAvg);
 		
 		// LED color
 		if (ledThreadRunning==1) {
