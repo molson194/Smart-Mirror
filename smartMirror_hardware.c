@@ -4,7 +4,7 @@
  * Handles two photoresistor reads (polling in a separate thread)
  *
  * @author Saeed Alrahma, Jeremy Schreck, Matt Olson
- * Nov 24, 2016
+ * Dec 1, 2016
  */
 
 #include <wiringPi.h>
@@ -52,8 +52,13 @@
 #define PHRES_READ_PERIOD 100 // in milliseconds
 #define BUTTON_POLLING_TIME 5 // in milliseconds
 #define BUTTON_WAIT 25 // in milliseconds
+#define LINK_PAGE_NUMBER_INDEX 46
+#define LINK_USER_ID_INDEX 58
 const char USER1_PASSWORD[] = "LCRLCR";
-const char LINK_PAGE_NUMBER_INDEX = 67;
+const char USER2_PASSWORD[] = "RCLRCL";
+const char USER3_PASSWORD[] = "LLCCRR";
+const char GUEST_PASSWORD[] = "CCCCCC";
+
 
 /* Global Variables */
 // volatile int countLeft = 0;
@@ -66,9 +71,14 @@ short phAvg; // photoresistor running average
 char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
 //char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
-char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/Desktop/Smart-Mirror/page0.html &";
-char password[6];
-char pwInd;
+char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page0.html?user=0 &";
+char password[6]; // array when password entered
+char pwInd; // password current index (track password input)
+char user; // current user ID ('0' -> guest, '1' -> user1, etc)
+unsigned long timePasswordInputReceived; // time stamp when password input received
+unsigned long timeButtonCenterPressed; // time stamp when center button was pressed
+char blockButtonPress; // boolean to indicate when to block button presses
+
 
 /* Functions */
 int rpi_init(); // initialize GPIOs, threads, interrupts, and variables
@@ -87,6 +97,7 @@ int main(void) {
 		return 1;
 
 	// Start web app
+	system("fuser -k tcp/8000"); // kill process runnning localhost:8000
 	system("python -m SimpleHTTPServer 8000 &");
 	system(firefoxCall);
 
@@ -97,16 +108,39 @@ int main(void) {
 			if (pwInd == 6)
 			{
 				if(strncmp(password, USER1_PASSWORD, 6) == 0) {
-					printf("%s Logged in!\n", USER1_PASSWORD);
-					printf("I entered %s\n", password);
-					// TODO: set all variables to user's info
+					user = '1';
+					printf("Logged in as %c!\n", user);
+					webPage = '3';
+				} else if(strncmp(password, USER2_PASSWORD, 6) == 0) {
+					user = '2';
+					printf("Logged in as %c!\n", user);
+					webPage = '3';
+				} else if(strncmp(password, USER3_PASSWORD, 6) == 0) {
+					user = '3';
+					printf("Logged in as %c!\n", user);
+					webPage = '3';
+				} else if(strncmp(password, GUEST_PASSWORD, 6) == 0) {
+					user = '0';
+					printf("Logged in as %c!\n", user);
 					webPage = '1';
-					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
-					system(firefoxCall);
 				} else {
-					pwInd = 0; // reset password entry
+					// TODO: move to page (incorrect password)
+					webPage = '0';
+				}
+				firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
+				firefoxCall[LINK_USER_ID_INDEX] = user;
+				system(firefoxCall);
+				pwInd = 0; // reset password entry
+			} else if(pwInd > 0) {
+				if((millis() - timePasswordInputReceived)>3000) {
+					// timeout in 5 seconds
+					pwInd = 0;
+					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
+					firefoxCall[LINK_USER_ID_INDEX] = user;
+					system(firefoxCall);
 				}
 			}
+			
 		}
 		
 		// Youtube/Video page
@@ -122,7 +156,7 @@ int main(void) {
 		}
 
 		// TEMPORARY
-		printf("Web Page %c\n", webPage);
+		// printf("Web Page %c\n", webPage);
 		// printf("left: %d\n", countLeft);
 		// printf("right: %d\n", countRight);
 		// printf("center: %d\n", countCenter);
@@ -155,7 +189,7 @@ void INThandler(int sig) {
  */
 int ledDelay(int led, int delayDuration) {
 	int i=0;
-	unsigned int t1 = millis();
+	unsigned long t1 = millis();
 	// delay and check app page regularly
 	for(;i<delayDuration; i+=LED_DELAY_PERIOD) {
 		delay(LED_DELAY_PERIOD); // partial delay
@@ -165,7 +199,7 @@ int ledDelay(int led, int delayDuration) {
 			return 1; // app page changed
 		}
 	}
-	unsigned int t2 = millis();
+	unsigned long t2 = millis();
 	if ((t2-t1-delayDuration)>1000) {
 		printf("LED%d: Delay time is %d\n", led, t2-t1);
 	}
@@ -264,30 +298,34 @@ PI_THREAD(phresThread) {
 PI_THREAD(btnLeftThread) {
 	piHiPri(90); // high priority
 	while(1) {
-		while(digitalRead(BUTTON_LEFT)==1) {
-			// TO-DO: ignore other presses while handling press
-			// button pressed (block bouncing)
-			delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
-			if (digitalRead(BUTTON_LEFT)==1) { // ignore if pressed less than 30 ms
-				while (digitalRead(BUTTON_LEFT)==1) {
-					// wait for button release
-					delay(BUTTON_WAIT); // depends on our specs
-				}
-				// button released
-				// countLeft++;
-				if(webPage>'1'){
-					// Move app page left
-					webPage--;
-					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
-					system(firefoxCall);
-				}
-				// password input
-				else if ((webPage == '0') && (pwInd < 6)) {
-					password[pwInd] = 'L';
-					pwInd++;
+		if (blockButtonPress == 0) {
+			while(digitalRead(BUTTON_LEFT)==1) {
+				blockButtonPress = 1; // block all concurrent button presses
+				// button pressed (block bouncing)
+				delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
+				if (digitalRead(BUTTON_LEFT)==1) { // ignore if pressed less than 30 ms
+					while (digitalRead(BUTTON_LEFT)==1) {
+						// wait for button release
+						delay(BUTTON_WAIT); // depends on our specs
+					}
+					// button released
+					// countLeft++;
+					if(webPage>'1'){
+						// Move app page left
+						webPage--;
+						firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
+						system(firefoxCall);
+					}
+					// password input
+					else if ((webPage == '0') && (pwInd < 6)) {
+						password[pwInd] = 'L';
+						pwInd++;
+						timePasswordInputReceived = millis(); // start/reset timer
+					}
 				}
 			}
-		}	
+			blockButtonPress = 0; // unbock all button presses	
+		}
 		delay(BUTTON_POLLING_TIME);
 	}
 }
@@ -296,29 +334,35 @@ PI_THREAD(btnLeftThread) {
 PI_THREAD(btnRightThread) {
 	piHiPri(90); // high priority
 	while(1) {
-		while(digitalRead(BUTTON_RIGHT)==1) {
-			// TO-DO: ignore other presses while handling press
-			// button pressed (block bouncing)
-			delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
-			if (digitalRead(BUTTON_RIGHT)==1) { // ignore if pressed less than 30 ms
-				while (digitalRead(BUTTON_RIGHT)==1) {
-					// wait for button release
-					delay(BUTTON_WAIT); // depends on our specs
-				}
-				// button released
-				// countRight++;
-				if ((webPage<'3') && (webPage != '0')){
-					// Move app page right
-					webPage++;
-					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
-					system(firefoxCall);
-				}
-				// password input
-				else if ((webPage == '0') && (pwInd < 6)) {
-					password[pwInd] = 'R';
-					pwInd++;
+		if (blockButtonPress == 0) {
+			while(digitalRead(BUTTON_RIGHT)==1) {
+				blockButtonPress = 1; // block all concurrent button presses
+				// button pressed (block bouncing)
+				delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
+				if (digitalRead(BUTTON_RIGHT)==1) { // ignore if pressed less than 30 ms
+					while (digitalRead(BUTTON_RIGHT)==1) {
+						// wait for button release
+						delay(BUTTON_WAIT); // depends on our specs
+					}
+					// button released
+					// countRight++;
+					if ((webPage<'3') && (webPage != '0')){
+						// Move app page right
+						if (user != '0' || webPage != '2') {
+							webPage++;
+							firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
+							system(firefoxCall);
+						}
+					}
+					// password input
+					else if ((webPage == '0') && (pwInd < 6)) {
+						password[pwInd] = 'R';
+						pwInd++;
+						timePasswordInputReceived = millis(); // start/reset timer
+					}
 				}
 			}
+			blockButtonPress = 0; // unbock all button presses	
 		}
 		delay(BUTTON_POLLING_TIME);
 	}
@@ -328,27 +372,46 @@ PI_THREAD(btnRightThread) {
 PI_THREAD(btnCenterThread) {
 	piHiPri(90); // high priority
 	while(1) {
-		while(digitalRead(BUTTON_CENTER)==1) {
-			// TO-DO: ignore other presses while handling press
-			// button pressed (block bouncing)
-			delay(BUTTON_WAIT); /// min button press duration (WAIT + POLLING)
-			if (digitalRead(BUTTON_CENTER)==1) { // ignore if pressed less than 30 ms
-				while (digitalRead(BUTTON_CENTER)==1) {
-					// wait for button release
-					delay(BUTTON_WAIT); // depends on our specs
-				}
-				// button released
-				// countCenter++;
-				if(webPage=='2'){
-					// TO-DO: handle start/stop video
+		if (blockButtonPress == 0) {
+			while(digitalRead(BUTTON_CENTER)==1) {
+				blockButtonPress = 1; // block all concurrent button presses
+				timeButtonCenterPressed = millis(); // capture time button pressed
+				// button pressed (block bouncing)
+				delay(BUTTON_WAIT); /// min button press duration (WAIT + POLLING)
+				if (digitalRead(BUTTON_CENTER)==1) { // ignore if pressed less than 30 ms
+					while (digitalRead(BUTTON_CENTER)==1) {
+						// wait for button release
+						delay(BUTTON_WAIT); // depends on our specs
+						if((millis()-timeButtonCenterPressed)>2000) {
+							break;
+						}
+					}
+					// button released
+					if((millis()-timeButtonCenterPressed)>2000) {
+						// Sign out
+						webPage = '0';
+						user = '0';
+						firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
+						firefoxCall[LINK_USER_ID_INDEX] = user;
+						system(firefoxCall);
+						while(digitalRead(BUTTON_CENTER)==1) {
+							// wait until user releases button
+						}
+					}
+					// countCenter++;
 					// TO-DO: handle turn on/off tv
-				}
-				// password input
-				else if ((webPage == '0') && (pwInd < 6)) {
-					password[pwInd] = 'C';
-					pwInd++;
+					else if(webPage=='2'){
+						// TO-DO: handle start/stop video
+					}
+					// password input
+					else if ((webPage == '0') && (pwInd < 6)) {
+						password[pwInd] = 'C';
+						pwInd++;
+						timePasswordInputReceived = millis(); // start/reset timer
+					}
 				}
 			}
+			blockButtonPress = 0; // unbock all button presses	
 		}
 		delay(BUTTON_POLLING_TIME);
 	}
@@ -367,6 +430,10 @@ int rpi_init(){
 	phAvg = 64; // initialize to mean (range [0, 127])
 	terminateCode = 0;
 	pwInd = 0;
+	user = '0'; // default user is guest
+	blockButtonPress = 0; // unblock button presses
+	timePasswordInputReceived = 0;
+
 	// setup wiringPi with BCM_GPIO pin numbering
 	if(wiringPiSetupGpio() < 0) {
 		fprintf(stderr, "Unable to setup wiringPi: $s\n", strerror(errno));
