@@ -47,7 +47,9 @@ html, body {
         $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
       });
 
-      switchToUser(users[0]);
+      var user = getParameterByName("user", window.location.href);
+      //if(!user) switchToUser(anonymous);
+      switchToUser(user);
 
   });
 
@@ -80,6 +82,17 @@ html, body {
     }
   }
 
+  function getParameterByName(name, url) {
+  if (!url) {
+      url = window.location.href;
+    }
+    name = name.replace(/[\[\]]/g, "\\$&");
+    var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+        results = regex.exec(url);
+    if (!results) return null;
+    if (!results[2]) return '';
+    return decodeURIComponent(results[2].replace(/\+/g, " "));
+  }
   function loadCalendar(){
     console.log("loading calendar for user: " + current_user + ".\n");
     // Retrieve today's events for current user
