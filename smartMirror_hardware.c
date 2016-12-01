@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <math.h>
+#include <string.h>
 
 /* GPIO Pins */
 #define CLK 4 // Phyiscal 7
@@ -38,11 +39,11 @@
 #define PHRES_A5 14 // Phyiscal 8
 #define PHRES_A6 15 // Phyiscal 10
 #define PHRES_A7 17 // Phyiscal 11
-// #define PHRES_B3 27 // Phyiscal 13
-// #define PHRES_B4 22 // Phyiscal 15
-// #define PHRES_B5 23 // Phyiscal 16
-// #define PHRES_B6 24 // Phyiscal 18
-// #define PHRES_B7 25 // Phyiscal 22
+#define PHRES_B3 27 // Phyiscal 13
+#define PHRES_B4 22 // Phyiscal 15
+#define PHRES_B5 23 // Phyiscal 16
+#define PHRES_B6 24 // Phyiscal 18
+#define PHRES_B7 25 // Phyiscal 22
 
 /* Constants */
 #define LED_SWITCH_TIME 15000 // in milliseconds
@@ -51,6 +52,8 @@
 #define PHRES_READ_PERIOD 100 // in milliseconds
 #define BUTTON_POLLING_TIME 5 // in milliseconds
 #define BUTTON_WAIT 25 // in milliseconds
+const char USER1_PASSWORD[] = "LCRLCR";
+const char LINK_PAGE_NUMBER_INDEX = 67;
 
 /* Global Variables */
 // volatile int countLeft = 0;
@@ -63,7 +66,7 @@ short phAvg; // photoresistor running average
 char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
 //char firefoxCall[] = "sudo -u $SUDO_USER firefox /home/pi/Desktop/Code/page1.html";
-char firefoxCall[];
+char firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/Desktop/Smart-Mirror/page0.html &";
 char password[6];
 char pwInd;
 
@@ -93,17 +96,15 @@ int main(void) {
 		if (webPage == '0') {
 			if (pwInd == 6)
 			{
-				switch(password) {
-					case "LCRLCR":
-						printf("%s Logged in!\n", password);
-						// TODO: map password to user
-						// TODO: set all variables to user's info
-						firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/page1.html &";
-						system(firefoxCall);
-						webPage = '1';
-						break;
-					default:
-						pwInd = 0; // reset password entry
+				if(strncmp(password, USER1_PASSWORD, 6) == 0) {
+					printf("%s Logged in!\n", USER1_PASSWORD);
+					printf("I entered %s\n", password);
+					// TODO: set all variables to user's info
+					webPage = '1';
+					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
+					system(firefoxCall);
+				} else {
+					pwInd = 0; // reset password entry
 				}
 			}
 		}
@@ -126,6 +127,7 @@ int main(void) {
 		// printf("right: %d\n", countRight);
 		// printf("center: %d\n", countCenter);
 		printf("phAvg: %d\n", phAvg);
+		printf("Password entered so far: %s\n", password);
 		// countLeft = 0;
 		// countRight = 0;
 		// countCenter = 0;
@@ -229,17 +231,19 @@ PI_THREAD(phresThread) {
 		char phresA = (digitalRead(PHRES_A3)<<3)+
 			(digitalRead(PHRES_A4)<<4)+(digitalRead(PHRES_A5)<<5)+
 			(digitalRead(PHRES_A6)<<6)+(digitalRead(PHRES_A7)<<7);
-		// char phresB = (digitalRead(PHRES_B3)<<3)+
-		// 	(digitalRead(PHRES_B4)<<4)+(digitalRead(PHRES_B5)<<5)+
-		// 	(digitalRead(PHRES_B6)<<6)+(digitalRead(PHRES_B7)<<7);
-		// char readingAvg = (phresA>>1)+(phresB>>1); // add and divide by 2
+		char phresB = (digitalRead(PHRES_B3)<<3)+
+			(digitalRead(PHRES_B4)<<4)+(digitalRead(PHRES_B5)<<5)+
+			(digitalRead(PHRES_B6)<<6)+(digitalRead(PHRES_B7)<<7);
+		char readingAvg = (phresA>>1)+(phresB>>1); // add and divide by 2
 
 		// recalculate running average
 		phAvg -= (phAvg>>runningAvgShift); // subtract average reading
-		phAvg += (phresA>>runningAvgShift); // add new reading
-		// phAvg += (readingAvg<<runningAvgShift); // add new reading
+		//phAvg += (phresA>>runningAvgShift); // add new reading
+		phAvg += (readingAvg>>runningAvgShift); // add new reading
 
 		//printf("Photoresistor A: %d\n", phresA);
+		//printf("Photoresistor B: %d\n", phresB);
+		//printf("Photoresistor Avg: %d\n", readingAvg);
 		
 		// LED color
 		if (ledThreadRunning==1) {
@@ -274,7 +278,7 @@ PI_THREAD(btnLeftThread) {
 				if(webPage>'1'){
 					// Move app page left
 					webPage--;
-					firefoxCall[46] = webPage;
+					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
 					system(firefoxCall);
 				}
 				// password input
@@ -303,10 +307,10 @@ PI_THREAD(btnRightThread) {
 				}
 				// button released
 				// countRight++;
-				if ((webPage<'3') && (webPage != 0)){
+				if ((webPage<'3') && (webPage != '0')){
 					// Move app page right
 					webPage++;
-					firefoxCall[46] = webPage;
+					firefoxCall[LINK_PAGE_NUMBER_INDEX] = webPage;
 					system(firefoxCall);
 				}
 				// password input
@@ -341,7 +345,7 @@ PI_THREAD(btnCenterThread) {
 				}
 				// password input
 				else if ((webPage == '0') && (pwInd < 6)) {
-					password[pwInd] = 'R';
+					password[pwInd] = 'C';
 					pwInd++;
 				}
 			}
@@ -357,7 +361,7 @@ int rpi_init(){
 	signal(SIGINT, INThandler); // handle exit
 
 	// Initialize variables
-	firefoxCall[] = "sudo -u $SUDO_USER firefox localhost:8000/welcome.html &"; // initialize to welcome page
+	//firefoxCall = "sudo -u $SUDO_USER firefox localhost:8000/page0.html &"; // initialize to welcome page
 	webPage = '0';
 	ledThreadRunning = 0;
 	phAvg = 64; // initialize to mean (range [0, 127])
