@@ -5,6 +5,7 @@ html, body {
 }
 </style>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="http://www.youtube.com/player_api"></script>
 <script type="text/javascript">
 
 $(document).ready(function() {
@@ -12,10 +13,9 @@ $(document).ready(function() {
     window.setInterval(showDate(), 1000); // update time every second
     window.setInterval(showTemp(), 1000*60); // update temperature every minute
     document.onkeyup = KeyCheck;
-    
+
     initCalendar();
     initWeather();
-    initYoutube();
 
     //TODO get params
     var app = 1;
@@ -27,7 +27,6 @@ $(document).ready(function() {
     //if(!user) switchToUser(anonymous);
     switchToUser(user);
 
-
 });
 
 
@@ -35,13 +34,14 @@ $(document).ready(function() {
 // Your Client ID can be retrieved from your project in the Google Developer Console, https://console.developers.google.com
 var CLIENT_ID = '593428568477-kfk8jggviu6h69l3c19gmn6pcl5e8792.apps.googleusercontent.com';
 var CLIENT_SECRET = 'ivf-51KXZ108Zmo7AOhISxRb';
+var player;
 
 var jeremy = "1";
 var saeed = "2";
 var matthew = "3";
 var dukeball = "4";
 var refresh_tokens = {
-  "1": "1/AENYqu4C-mfy7IcHBMqdj1ZuOyV4p4V9j986HQEb5lE", 
+  "1": "1/AENYqu4C-mfy7IcHBMqdj1ZuOyV4p4V9j986HQEb5lE",
   "4": "1/0oU9XNdTpQNGJpiHm7GXddHR9yCP_7Yp7FzSjqc6O54",
   "3": "1/FUHoBAYNyK0zkOXxG2q8hV-o5TCCx5keY-Ez0ztWs9k",
   "2": "1/YlfEGl6iHnJ3mqa84vaO3ij8ugux8yiYR0MlwPSn2P27QbjYypn-VYPPkkIGDqjM"
@@ -49,7 +49,7 @@ var refresh_tokens = {
 
 //todo maybe store access_tokens in local storage somewhere. doesn't really matter tho unless there's a limit on refreshing (keeping it as is will just result in an extra failed call using an old access token everytime the browser is reopened)
 var access_tokens = {
-  "1" : "ya29.GlugA0_DnCr4HHFNXMkG_s2t47IpQvF5YLwNpD3adV6bGM8lfnRP7fTDTHo6bSTsaDQkWk4aDysRtXIVIWoZp7mIgHkp0IQYiTkVyef-upoMxiFluuBjw_Qc9gBR", 
+  "1" : "ya29.GlugA0_DnCr4HHFNXMkG_s2t47IpQvF5YLwNpD3adV6bGM8lfnRP7fTDTHo6bSTsaDQkWk4aDysRtXIVIWoZp7mIgHkp0IQYiTkVyef-upoMxiFluuBjw_Qc9gBR",
   "4" : "ya29.Ci-gAyJ60pWzoMVvh56V1TMezs4UKflwznoKNjCVvccW4piEF_85c7Ga6d94IvczUA",
   "3" : "ya29.Ci-lA3RFvcahBluRI3mgWC3IbayDjh7bM9a-M_QD9BT2eWrJEhqQ53aKfGC-_6Xf2A",
   "2" : "ya29.Ci-lA97hxELYARY-Xb6ogSpoPYkEYn-8cVQUtdtXMJBhL4-69sDFnrtZvijTf_Kjcg"
@@ -82,18 +82,9 @@ function initWeather() {
       for (var i = 0; i < 6; i++) {
         var date = new Date(json.list[i].dt*1000);
         console.log(date);
-        $("#weather" + i).html("<td>" + (date.getUTCHours()+1) + ":00" + "</td><td>" + json.list[i].weather[0].main + "</td><td>" + Math.round(json.list[i].main.temp * 9/5 - 459.67) + "&deg;F</td><td>" + json.list[i].main.humidity + "%</td><td>" + json.list[i].wind.speed + "</td>");
+        var time = ((date.getUTCHours()-5 > 0) ? date.getUTCHours()-5 : date.getUTCHours()+7) % 12;
+        $("#weather" + i).html("<td>" + time + ":00" + "</td><td>" + json.list[i].weather[0].main + "</td><td>" + Math.round(json.list[i].main.temp * 9/5 - 459.67) + "&deg;F</td><td>" + json.list[i].main.humidity + "%</td><td>" + json.list[i].wind.speed + "</td>");
       }
-    });
-}
-
-function initYoutube() {
-//https://www.googleapis.com/youtube/v3/search?key={your_key_here}&channelId={channel_id_here}&part=snippet,id&order=date&maxResults=20
-    $.getJSON("https://www.googleapis.com/youtube/v3/search?key=AIzaSyDR_kYAugZpEqrkJshQt-9TIRdclo5PlNY&channelId=UCUHW94eEFW7hkUMVaZz4eDg&part=snippet,id&order=date&maxResults=40",function(json){
-      var videoId = json.items[Math.floor(Math.random()*40)].id.videoId;
-      //$("#video").attr("src", "https://www.youtube.com/embed/"+videoId + "?autoplay=1");
-      $("#video").attr("src", "https://www.youtube.com/embed/"+videoId);
-
     });
 }
 
@@ -105,8 +96,7 @@ function showDiv(id) {
   var div = document.getElementById(id);
   div.style.display = 'block';
   if(id=='youtube') {
-    var video = document.getElementById('video');
-    //video.playVideo();
+    player.playVideo();
   }
 }
 
@@ -114,8 +104,7 @@ function hideDiv(id) {
   var div = document.getElementById(id);
   div.style.display = 'none';
   if(id=='youtube') {
-    var video = document.getElementById('video');
-    //video.pauseVideo();
+    player.pauseVideo();
   }
 }
 
@@ -124,7 +113,7 @@ function showCalendar() {
   hideDiv('weather');
   hideDiv('youtube');
   showDiv('calendar');
- 
+
 }
 
 function showWeather() {
@@ -191,7 +180,7 @@ function switchToUser(user) {
 function switchToUserWithIndex(index) {
   switchToUser(users[index]);
 }
- 
+
 function switchToUserWithPassword(password) {
   if(password in passwords) {
     switchToUser(passwords[password]);
@@ -207,13 +196,13 @@ function getCurrentUserIndex() {
 }
 function changeToPreviousUser() {
   var currentUserIndex = getCurrentUserIndex();
-  var newUserIndex = currentUserIndex == 0 ? users.length - 1 : currentUserIndex - 1; 
+  var newUserIndex = currentUserIndex == 0 ? users.length - 1 : currentUserIndex - 1;
   switchToUserWithIndex(newUserIndex);
 }
 
 function changeToNextUser() {
   var currentUserIndex = getCurrentUserIndex();
-  var newUserIndex = currentUserIndex == users.length - 1  ? 0 : currentUserIndex + 1; 
+  var newUserIndex = currentUserIndex == users.length - 1  ? 0 : currentUserIndex + 1;
   switchToUserWithIndex(newUserIndex);
 }
 function loadCalendar(){
@@ -236,8 +225,8 @@ function loadCalendar(){
     var refresh_token = refresh_tokens[current_user];
     var tokenURL = "https://www.googleapis.com/oauth2/v4/token";
     var payload = {
-      client_id: CLIENT_ID, 
-      client_secret: CLIENT_SECRET, 
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
       refresh_token: refresh_token,
       grant_type:"refresh_token"
     };
@@ -261,7 +250,7 @@ function loadCalendar(){
       calendarRequest2.fail(function(json) {
         console.log("Failed to retrieve calendar with new access token.\n");
       });
-    }); 
+    });
 
     accessTokenRequest.fail(function(json) {
       console.log("Failed to retrieve new access token.\n")
@@ -298,7 +287,7 @@ function getCalendarURL(params) {
 function listUpcomingEvents(resp) {
   clearEvents();
   var events = resp.items;
-  
+
   if (events.length > 0) {
     for (i = 0; i < Math.min(events.length,3); i++) { //for (i = 0; i < events.length; i++) {
       var event = events[i];
@@ -340,8 +329,43 @@ function clearEvents() {
   }
 }
 
+// create youtube player
+
+function onYouTubePlayerAPIReady() {
+  $.getJSON("https://www.googleapis.com/youtube/v3/search?key=AIzaSyDR_kYAugZpEqrkJshQt-9TIRdclo5PlNY&channelId=UCUHW94eEFW7hkUMVaZz4eDg&part=snippet,id&order=date&maxResults=40",function(json){
+    var videoId = json.items[Math.floor(Math.random()*40)].id.videoId;
+    player = new YT.Player('player', {
+      height: '100%',
+      width: '100%',
+      videoId: videoId,
+      events: {
+        'onReady': onPlayerReady,
+        'onStateChange': onPlayerStateChange
+      }
+    });
+  });
+
+}
+
+// autoplay video
+function onPlayerReady(event) {
+    //event.target.playVideo();
+    //event.target.pauseVideo();
+}
+
+// when video ends
+function onPlayerStateChange(event) {
+    if(event.data === 0) {
+        $.getJSON("https://www.googleapis.com/youtube/v3/search?key=AIzaSyDR_kYAugZpEqrkJshQt-9TIRdclo5PlNY&channelId=UCUHW94eEFW7hkUMVaZz4eDg&part=snippet,id&order=date&maxResults=40",function(json){
+          var videoId = json.items[Math.floor(Math.random()*40)].id.videoId;
+            player.loadVideoById(videoId);
+
+        });
+    }
+}
 
 </script>
+
 <div style="color: white; background-color:black; height:100%; width:100%; display:inline-block; margin:0px 0px 0px 0px;">
   <div style="width:100%; height:5%; font-size: 5vh; margin-top:1%; margin-bottom:1%;">
     <div id="temp" style="width:45%; height:100%; float:left; margin-left:5%;">
@@ -356,8 +380,8 @@ function clearEvents() {
     <div id="events" style="margin:0 5% 0 5%; font-size: 5vh; height:70%; width:90%; padding-top: 50px">
   </div>
   </div>
-  <div id="weather" style="display: none; margin:0 5% 0 5%; padding-top:50px; height:60%; width:100%;">
-    <table style="color:white; width:90%; font-size:3vh; margin-left:0%; margin-right: 5%; border-collapse: collapse;">
+  <div id="weather" style="display: none; margin:0 0% 0 0%; padding-top:50px; height:60%; width:100%;">
+    <table style="color:white; width:100%; font-size:3vh; padding-left:5%; padding-right: 5%; border-collapse: collapse;">
       <tr style="border-bottom: 1px solid; border-color:white;">
         <td>Time</td>
         <td>About</td>
@@ -378,8 +402,8 @@ function clearEvents() {
       <tr id="weather5">
     </table>
   </div>
-  <div id="youtube" style="display: none; margin:0 5% 0 5%; padding-top:50px; height:70%; width:100%; margin-bottom:3%">
-    <iframe id="video" width="90%" height="100%" src="https://www.youtube.com/embed/ueBAwstKgxE" frameborder="0" allowfullscreen></iframe>
+  <div id="youtube" style="display: none; margin:0 0% 0 0%; padding-top:50px; height:70%; width:100%; margin-bottom:3%">
+    <div id="player"></div>
   </div>
   <div id="date" style="width:100%; height: 5%; font-size: 5vh; text-align:center"></div>
 </div>
