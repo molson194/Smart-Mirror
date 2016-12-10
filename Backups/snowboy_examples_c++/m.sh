@@ -1,5 +1,5 @@
 #!/bin/sh
-# Activate firefox and paste the clipboard contents into the url bar.
+# Activate firefox and press m
 
 wid=`xdotool search "Mozilla Firefox"`
 xdotool windowactivate $wid

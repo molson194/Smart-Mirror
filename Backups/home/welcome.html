@@ -9,17 +9,20 @@ html, body {
 
 $(document).ready(function() {
     var date = new Date(Date.now());
-    //$("#time").html((date.getUTCHours()+1) + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
     $("#time").html(date.toLocaleTimeString());
     $("#date").html(date.toLocaleDateString());
 
-    if (date.getUTCHours() < 12) {
+    if (date.getHours() < 12) {
       $("#greeting").html("Good Morning");
-    } else if (date.getUTCHours() > 20) {
-      $("#greeting").html("Good Night");
-    } else {
+    } else if (date.getHours() < 18) {
       $("#greeting").html("Good Afternoon");
-    }
+    } else if (date.getHours() < 20) {
+      $("#greeting").html("Good Evening");
+    } else if (date.getHours() >= 20) {
+      $("#greeting").html("Good Night");
+    } 
+    
+    showStars();
 
     $.getJSON("http://api.openweathermap.org/data/2.5/weather?q=Durham,us&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
       $("#temp").html(Math.round(json.main.temp * 9/5 - 459.67) + "&deg;F");
@@ -28,12 +31,14 @@ $(document).ready(function() {
 
 window.setInterval(function(){
   var date = new Date(Date.now());
-  //$("#time").html((date.getUTCHours()+1) + ":" + date.getUTCMinutes() + " " + (date.getMonth()+1) + "/" + date.getDate() + "/" + date.getFullYear()%100);
   $("#time").html(date.toLocaleTimeString());
   $("#date").html(date.toLocaleDateString());
 }, 1000);
 
 document.onkeyup = KeyCheck;
+
+var numStars = 0;
+var passwordLength = 6;
 
 function KeyCheck(e) {
   var KeyID = (window.event) ? event.keyCode : e.keyCode;
@@ -44,8 +49,57 @@ function KeyCheck(e) {
     case 39:
 		  window.location = "page1.html";
 		  break;
+    case 80: // p (password)
+      addStar();
+      break;
+    case 82: // r (reset)
+      clearStars();
+      break;
+    case 83: // s (success)
+      showPasswordSuccess();
+      break;
+    case 70: // f (fail)
+      showPasswordFail();
+      break;
 	}
 }
+
+function addStar() {
+  if(numStars < 6) numStars++;
+  console.log(numStars);
+  showStars();
+}
+
+function clearStars() {
+  numStars = 0;
+  showStars();
+}
+
+function showStars() {
+  var html = "";
+  for(var i = 0; i < passwordLength; i++) {
+    if(i<numStars) {
+      html+="* ";
+    }else {
+      html+= "_ ";
+    }
+  }
+  document.getElementById("password").innerHTML = html;
+  document.getElementById("password-status").style.visibility = "hidden";
+}
+
+function showPasswordSuccess() {
+  var passwordStatus = document.getElementById("password-status");
+  passwordStatus.style.visibility = "visible";
+  passwordStatus.innerHTML = "Success! Logging in...";
+}
+
+function showPasswordFail() {
+  var passwordStatus = document.getElementById("password-status");
+  passwordStatus.style.visibility = "visible";
+  passwordStatus.innerHTML = "Invalid password! Please try again.";
+}
+
 </script>
 <div style="color: white; background-color:black; height:100%; width:100%; display:inline-block; margin:0px 0px 0px 0px;">
   <div style="width:100%; height:5%; font-size: 5vh; margin-top:1%; margin-bottom:1%;">
@@ -56,9 +110,11 @@ function KeyCheck(e) {
       12:00 PM 1/1/11
     </div>
   </div>
-  <div style="margin:0 5% 0 5%; padding-top:50px; text-align: center; height:60%; width:100%;">
+  <div style="margin:0 0 0 0; padding-top:50px; text-align: center; height:60%; width:100%;">
     <div id="greeting" style="font-size:72"></div>
     <div id="greeting" style="font-size:24">Press your combination on the buttons</div>
+    <div id="password" style="font-size:72; margin: 30px 0 30px 0"></div>
+    <div id="password-status" style="font-size:32; visibility:hidden;"></div>
   </div>
   <div id="date" style="width:100%; height: 5%; font-size: 5vh; text-align:center"></div>
 </div>

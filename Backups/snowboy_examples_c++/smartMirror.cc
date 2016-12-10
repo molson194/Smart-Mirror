@@ -95,6 +95,23 @@ string goCalendar = "sh c.sh";
 string goWeather = "sh w.sh";
 string goYoutube = "sh y.sh";
 string goMiroslav = "sh m.sh";
+string addStar = "sh p.sh";
+string clearStars = "sh r.sh";
+string passwordSuccess = "sh s.sh";
+string passwordFail = "sh f.sh";
+
+/*
+string goLeft = "sh key.sh Left";
+string goRight = "sh key.sh Right";
+string goCalendar = "sh key.sh c";
+string goWeather = "sh key.sh w";
+string goYoutube = "sh key.sh y";
+string goMiroslav = "sh key.sh m";
+string addStar = "sh key.sh p";
+string clearStars = "sh key.sh r";
+string passwordSuccess = "sh key.sh s";
+string passwordSuccess = "sh key.sh f";
+*/
 
 char password[6]; // array when password entered
 int pwInd; // password current index (track password input)
@@ -116,7 +133,11 @@ void goToWelcomePage();
 void goToMainPage(char user);
 void goToMainPage(int appIndex, char user);
 void openURL(string url);
-
+void increasePasswordIndex();
+void addStar();
+void sendPasswordSuccess();
+void sendPasswordFail();
+void handlePassword(bool success);
 
 ///////Voice
 
@@ -347,6 +368,7 @@ int main(void) {
 		if (currentApp == 0) {
 			if (pwInd == 6)
 			{
+        bool success = true;
 				if(strncmp(password, USER1_PASSWORD, 6) == 0) {
 					currentUser = '1';
 					printf("Logged in as %c!\n", currentUser);
@@ -365,16 +387,15 @@ int main(void) {
 					currentApp = 2;
 				} else {
 					// TODO: move to page (incorrect password)
+          success = false;
 					currentApp = 0;
 				}
-				goToMainPage(currentApp, currentUser);
-				pwInd = 0; // reset password entry
+        handlePassword(success);
 			} else if(pwInd > 0) {
 				if((millis() - timePasswordInputReceived)>3000) {
 					// timeout in 5 seconds
 					goToWelcomePage();
-					pwInd = 0;
-
+          clearPassWord();
 				}
 			}
 			
@@ -406,6 +427,36 @@ int main(void) {
 	}
 
 	return 0;
+}
+
+void increasePasswordIndex() {
+  pwInd++;
+  system(addStar.c_str());
+}
+
+void clearPassword() {
+  pwInd = 0;
+  system(clearStars.c_str());
+}
+
+void handlePassword(bool success) {
+  if(success) {
+     sendPasswordSuccess();
+     goToMainPage(currentApp, currentUser);
+  } else {
+    clearStars();
+    sendPasswordFail();
+  }
+}
+
+void sendPasswordSuccess() {
+  pwInd = 0;
+  system(passwordSuccess.c_str());
+}
+
+void sendPasswordFail() {
+  pwInd = 0;
+  system(passwordFail.c_str());
 }
 
 void goToWelcomePage() {
@@ -613,7 +664,7 @@ PI_THREAD(btnLeftThread) {
 					// password input
 					else if ((currentApp == '0') && (pwInd < 6)) {
 						password[pwInd] = 'L';
-						pwInd++;
+            increasePasswordIndex();
 						timePasswordInputReceived = millis(); // start/reset timer
 					}
 				}
@@ -649,7 +700,7 @@ PI_THREAD(btnRightThread) {
 					// password input
 					else if ((currentApp == 0) && (pwInd < 6)) {
 						password[pwInd] = 'R';
-						pwInd++;
+            increasePasswordIndex();
 						timePasswordInputReceived = millis(); // start/reset timer
 					}
 				}
@@ -694,7 +745,7 @@ PI_THREAD(btnCenterThread) {
 					// password input
 					else if ((currentApp == 0) && (pwInd < 6)) {
 						password[pwInd] = 'C';
-						pwInd++;
+            increasePasswordIndex();
 						timePasswordInputReceived = millis(); // start/reset timer
 					}
 				}
@@ -772,7 +823,7 @@ int rpi_init(){
 	ledThreadRunning = 0;
 	phAvg = 64; // initialize to mean (range [0, 127])
 	terminateCode = 0;
-	pwInd = 0;
+  clearPassword();
 	blockButtonPress = 0; // unblock button presses
 	timePasswordInputReceived = 0;
 
