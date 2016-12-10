@@ -102,17 +102,21 @@ function hideDiv(id) {
 
 function showCalendar() {
   console.log("calendar");
+  showDiv('calendar');
   hideDiv('weather');
   hideDiv('youtube');
-  showDiv('calendar');
+  hideDiv('miroslav');
+
 
 }
 
 function showWeather() {
   console.log("weather");
   hideDiv('calendar');
-  hideDiv('youtube');
   showDiv('weather');
+  hideDiv('youtube');
+  hideDiv('miroslav');
+
 
 }
 
@@ -121,7 +125,18 @@ function showYoutube() {
   hideDiv('weather');
   hideDiv('calendar');
   showDiv('youtube');
+  hideDiv('miroslav');
+
 }
+
+function showMiroslav() {
+  console.log("miroslav");
+  hideDiv('weather');
+  hideDiv('calendar');
+  hideDiv('youtube');
+  showDiv('miroslav');
+}
+
 
 
 function KeyCheck(e) {
@@ -151,7 +166,7 @@ function KeyCheck(e) {
 	  break;
 	case 77: //m
 	  currentAppIndex = 3;
-	  //appFunctions[currentAppIndex]();
+    showMiroslav();
 	  break;
 	case 87: //w
 	  currentAppIndex = 1;
