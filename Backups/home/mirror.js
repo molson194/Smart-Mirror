@@ -176,9 +176,6 @@ function KeyCheck(e) {
 	  currentAppIndex = 2;
 	  appFunctions[currentAppIndex]();
 	  break;
-	}
-	
-	
 }
 
 function getParameterByName(name, url) {
