@@ -61,6 +61,12 @@ function KeyCheck(e) {
     case 70: // f (fail)
       showPasswordFail();
       break;
+    case 79: // off
+      sleep();
+      break;
+    case 87: // wake
+      wake();
+      break;
 	}
 }
 
@@ -100,8 +106,19 @@ function showPasswordFail() {
   passwordStatus.innerHTML = "Invalid password! Please try again.";
 }
 
+function sleep() {
+  document.getElementById("main").style.display = "none";
+  document.getElementById("sleep").style.display = "block";
+}
+
+function wake() {
+  document.getElementById("main").style.display = "block";
+  document.getElementById("sleep").style.display = "none";
+}
+
 </script>
-<div style="color: white; background-color:black; height:100%; width:100%; display:inline-block; margin:0px 0px 0px 0px;">
+<body style="color: white; background-color:black; height:100%; width:100%; display:inline-block; margin:0px 0px 0px 0px;">
+  <div id="main">
   <div style="width:100%; height:5%; font-size: 5vh; margin-top:1%; margin-bottom:1%;">
     <div id="temp" style="width:45%; height:100%; float:left; margin-left:5%;">
 
@@ -117,4 +134,7 @@ function showPasswordFail() {
     <div id="password-status" style="font-size:32; visibility:hidden;"></div>
   </div>
   <div id="date" style="width:100%; height: 5%; font-size: 5vh; text-align:center; position: absolute; bottom: 50px"></div>
-</div>
+  </div>
+  <div id="sleep" style="display:none"></div>
+
+</body>

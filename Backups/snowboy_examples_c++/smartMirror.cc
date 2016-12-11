@@ -99,6 +99,8 @@ string addStar = "sh p.sh";
 string clearStars = "sh r.sh";
 string passwordSuccess = "sh s.sh";
 string passwordFail = "sh f.sh";
+string sleep = "sh o.sh";
+string wake = "sh w.sh";
 
 /*
 string goLeft = "sh key.sh Left";
@@ -110,7 +112,10 @@ string goMiroslav = "sh key.sh m";
 string addStar = "sh key.sh p";
 string clearStars = "sh key.sh r";
 string passwordSuccess = "sh key.sh s";
-string passwordSuccess = "sh key.sh f";
+string passwordFail = "sh key.sh f";
+string sleep = "sh key.sh o";
+string wake = "sh key.sh w";
+
 */
 
 char password[6]; // array when password entered
@@ -138,6 +143,8 @@ void addStar();
 void sendPasswordSuccess();
 void sendPasswordFail();
 void handlePassword(bool success);
+void sleep();
+void wake();
 
 ///////Voice
 
@@ -307,38 +314,26 @@ void hotwordDetected(int hotword) {
 	//Todo make sure we're signed in
   if (hotword == 1) {
     // page 1
-    printf("1");
     //goToMainPage(1, currentUser);
     system(goCalendar.c_str());
   } else if (hotword == 2) {
     // page 2
-	printf("2");
-	//goToMainPage(2, currentUser);
+	  //goToMainPage(2, currentUser);
     system(goWeather.c_str());
-
-
   } else if (hotword == 3) {
     // page 3
-	printf("3");
     //goToMainPage(3, currentUser);
     system(goYoutube.c_str());
-
   } else if (hotword == 4) {
     // miroslav
-     system(goMiroslav.c_str());
-
-
+    system(goMiroslav.c_str());
   } else if (hotword == 5) {
-    // vuk
-
-  } else if (hotword == 6) {
-    // safkat
-
-  } else if (hotword == 7) {
     // turn off
-  } else if (hotword == 8) {
+    sleep();
+  } else if (hotword == 6) {
     // turn on
-  } else if (hotword == 9) {
+    wake();
+  } else if (hotword == 7) {
     // home
     //goToURL(0, '0');
   }
@@ -463,10 +458,10 @@ void goToWelcomePage() {
 	currentApp = 0;
 	currentUser = '0';
 	string url = baseURL;
-  	url += welcomePage;
-  	url += " &";
+  url += welcomePage;
+  url += " &";
 
-  	openURL(url);
+  openURL(url);
 }
 
 void goToMainPage(char user) {
@@ -490,31 +485,26 @@ void goToMainPage(int appIndex, char user) {
  
 }
 
-void switchToApp(int appIndex) {
-		
-}
-
 void openURL(string url) {
   //string command = "open -a safari " + url;
   string command = firefoxCall + url;
   system(command.c_str());
 }
 
-/*
-void goToURL(int page, char user) {
-  currentUser = user;
-  currentApp = page;
-  string url = baseURL;
-  url += pages[page];
-  url += "?";
-  url += "user=" + user;
-  url += " &";
-
-  //string command = "open -a safari " + url;
-  string command = firefoxCall + url;
-  system(command.c_str());
+void sleep() {
+  if(currentApp == 0) {
+    system(sleep.c_str());
+  } else {
+    //todo make sure it does this synchronously (I don't think it does right now)
+    goToWelcomePage();
+    system(sleep.c_str());
+  }
 }
-*/
+
+void wake() {
+  system(wake.c_str());
+}
+
 
 /** Exit handler
  *	turns off all outputs
