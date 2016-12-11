@@ -86,8 +86,18 @@ std::string firefoxCall = "sudo -u $SUDO_USER firefox ";
 string baseURL = "localhost:8000/";
 string welcomePage = "welcome.html";
 string mainPage = "mirror.html";
-string apps[] = {"welcome", "calendar", "weather", "youtube"};
-//string pages[] = ["page0.html", "page1.html", "page2.html", "page3.html"];
+//string apps[] = {"welcome", "calendar", "weather", "youtube"};
+
+//string apps[] = {"weather", "youtube" "calendar"};
+//string guestApps[] = {"weather", "youtube"};
+
+vector<string> appCommands;
+apps.push_back(goWeather);
+apps.push_back(goYoutube);
+apps.push_back(goCalendar);
+vector<string> guestAppCommands;
+apps.push_back(goWeather);
+apps.push_back(goYoutube);
 
 string goLeft = "sh left.sh";
 string goRight = "sh right.sh";
@@ -136,15 +146,21 @@ void turnOnLEDs(); // turns on all LEDs
 void turnOffPWM(); // turns off all PWM outputs
 void goToWelcomePage();
 void goToMainPage(char user);
-void goToMainPage(int appIndex, char user);
 void openURL(string url);
 void increasePasswordIndex();
 void addStar();
 void sendPasswordSuccess();
 void sendPasswordFail();
 void handlePassword(bool success);
+void goLeft();
+void goRight();
+void switchToApp(int appIndex);
+void showMiroslav();
 void sleep();
 void wake();
+void logOut();
+vector<string> getAppCommands();
+void hotwordDetected(int hotword);
 
 ///////Voice
 
@@ -310,36 +326,6 @@ void SignalHandler(int signal){
   exit(0);
 }
 
-void hotwordDetected(int hotword) {
-	//Todo make sure we're signed in
-  if (hotword == 1) {
-    // page 1
-    //goToMainPage(1, currentUser);
-    system(goCalendar.c_str());
-  } else if (hotword == 2) {
-    // page 2
-	  //goToMainPage(2, currentUser);
-    system(goWeather.c_str());
-  } else if (hotword == 3) {
-    // page 3
-    //goToMainPage(3, currentUser);
-    system(goYoutube.c_str());
-  } else if (hotword == 4) {
-    // miroslav
-    system(goMiroslav.c_str());
-  } else if (hotword == 5) {
-    // turn off
-    sleep();
-  } else if (hotword == 6) {
-    // turn on
-    wake();
-  } else if (hotword == 7) {
-    // home
-    //goToURL(0, '0');
-  }
-
-}
-
 
 ////// End Voice
 
@@ -364,40 +350,41 @@ int main(void) {
 			if (pwInd == 6)
 			{
         bool success = true;
+        currentApp = '1';
 				if(strncmp(password, USER1_PASSWORD, 6) == 0) {
 					currentUser = '1';
 					printf("Logged in as %c!\n", currentUser);
-					currentApp = 1;
+					//currentApp = 1;
 				} else if(strncmp(password, USER2_PASSWORD, 6) == 0) {
 					currentUser = '2';
 					printf("Logged in as %c!\n", currentUser);
-					currentApp = 1;
+					//currentApp = 1;
 				} else if(strncmp(password, USER3_PASSWORD, 6) == 0) {
 					currentUser = '3';
 					printf("Logged in as %c!\n", currentUser);
-					currentApp = 1;
-				} else if(strncmp(password, GUEST_PASSWORD, 6) == 0) {
+					//currentApp = 1;
+				} /*else if(strncmp(password, GUEST_PASSWORD, 6) == 0) {
 					currentUser = '0';
 					printf("Logged in as %c!\n", currentUser);
 					currentApp = 2;
-				} else {
-					// TODO: move to page (incorrect password)
+				} */
+        else {
           success = false;
 					currentApp = 0;
 				}
         handlePassword(success);
 			} else if(pwInd > 0) {
 				if((millis() - timePasswordInputReceived)>3000) {
-					// timeout in 5 seconds
+					// timeout in 3 seconds
 					goToWelcomePage();
-          clearPassWord();
+          clearPassword();
 				}
 			}
 			
 		}
 		
 		// Youtube/Video page
-		if((currentApp==3) && !ledThreadRunning) {
+		if(isYoutube()) && !ledThreadRunning) {
 			// Start LED thread/timer!
 			if(piThreadCreate(ledThread) != 0){
 				fprintf(stderr, "Unable to start LED thread: %s\n", strerror(errno));
@@ -437,7 +424,7 @@ void clearPassword() {
 void handlePassword(bool success) {
   if(success) {
      sendPasswordSuccess();
-     goToMainPage(currentApp, currentUser);
+     goToMainPage(currentUser);
   } else {
     clearStars();
     sendPasswordFail();
@@ -455,7 +442,7 @@ void sendPasswordFail() {
 }
 
 void goToWelcomePage() {
-	currentApp = 0;
+	currentApp = getWelcomePageIndex();
 	currentUser = '0';
 	string url = baseURL;
   url += welcomePage;
@@ -465,24 +452,16 @@ void goToWelcomePage() {
 }
 
 void goToMainPage(char user) {
-  goToMainPage(1, user);
- 
-}
-
-void goToMainPage(int appIndex, char user) {
-  currentApp = appIndex;
   currentUser = user;
+  currentApp = isGuest() ? getWeatherIndex() : getCalendarIndex();
   string url = baseURL;
   url += mainPage;
   url += "?";
-  url += "app=" + apps[currentApp];
-  url += "&";
   url += "user="; 
   url += user;
   url += " &";
 
   openURL(url);
- 
 }
 
 void openURL(string url) {
@@ -491,8 +470,94 @@ void openURL(string url) {
   system(command.c_str());
 }
 
+vector<string> getAppCommands() {
+  if(isGuest()) {
+    return appCommands;
+  } else {
+    return guestAppCommands;
+  }
+}
+
+bool isWelcomePage() {
+  return currentApp == getWelcomePageIndex();
+}
+
+bool isMainApp() {
+  return !isWelcomePage();
+}
+
+bool isWeather() {
+  return currentApp == getWeatherIndex();
+}
+
+bool isYoutube() {
+  return currentApp == getYoutubeIndex();
+}
+
+bool isCalendar() {
+  return currentApp == getCalendarIndex();
+}
+bool isCalendar(int app) {
+  return app == getCalendarIndex();
+}
+
+int getCalendarIndex() {
+  return 2;
+}
+
+int getYoutubeIndex() {
+  return 1;
+}
+
+int getWeatherIndex() {
+  return 0;
+}
+
+int getWelcomePageIndex() {
+  return -1;
+}
+
+int getMiroslavIndex() {
+  return 3;
+}
+
+bool isGuest() {
+  return currentUser == '0';
+}
+
+void goLeft() {
+  if(isMainApp()) {}
+    currentApp--;
+    if(currentApp == -1) currentApp = getAppCommands().size() - 1;
+    system(goLeft.c_str());
+  }
+}
+
+void goRight() {
+  if(isMainApp()) {
+    currentApp++;
+    if(currentApp == getAppCommands().size) currentApp = 0;
+    system(goRight.c_str());
+  }
+}
+
+void switchToApp(int appIndex) {
+  if(isMainApp()) {
+    if(isCalendar(appIndex) && isGuest()) return;
+    currentApp =  appIndex;
+    system(getAppCommands(currentApp).c_str());
+  }
+ 
+}
+
+void showMiroslav() {
+  if(isMainApp()) {
+    system(goMiroslav.c_str());
+  }
+}
+
 void sleep() {
-  if(currentApp == 0) {
+  if(isWelcomePage()) {
     system(sleep.c_str());
   } else {
     //todo make sure it does this synchronously (I don't think it does right now)
@@ -502,9 +567,16 @@ void sleep() {
 }
 
 void wake() {
-  system(wake.c_str());
+  if(isWelcomePage()) {
+    system(wake.c_str());
+  }
 }
 
+void logOut() {
+  if(isMainApp()) {
+    goToWelcomePage();
+  }
+}
 
 /** Exit handler
  *	turns off all outputs
@@ -583,7 +655,7 @@ PI_THREAD(ledThread) {
 	turnOffLEDs(); // writes to first 8 gpio in wiring Pi
 	
 	// delay until web page changed
-	while (currentApp == '2') {
+	while (isYoutube()) {
 		ledDelay(11, LED_BLINK_TIME);
 	}
 	
@@ -645,18 +717,14 @@ PI_THREAD(btnLeftThread) {
 						delay(BUTTON_WAIT); // depends on our specs
 					}
 					// button released
-					// countLeft++;
-					if(currentApp>0){
-						system(goLeft.c_str());
-						currentApp = currentApp - 1;
-      					if (currentApp == 0) currentApp = 3;
-					}
-					// password input
-					else if ((currentApp == '0') && (pwInd < 6)) {
-						password[pwInd] = 'L';
+          if(isMainApp()) {
+            goLeft();
+          } else if (isWelcomePage() && pwInd < 6) {
+            // password input
+            password[pwInd] = 'L';
             increasePasswordIndex();
-						timePasswordInputReceived = millis(); // start/reset timer
-					}
+            timePasswordInputReceived = millis(); // start/reset timer
+          }
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -680,19 +748,14 @@ PI_THREAD(btnRightThread) {
 						delay(BUTTON_WAIT); // depends on our specs
 					}
 					// button released
-					// countRight++;
-					if(currentApp > 0) {
-						system(goRight.c_str());
-						currentApp = currentApp + 1;
-						if(currentApp == 4) currentApp = 1;
-					}
-			
-					// password input
-					else if ((currentApp == 0) && (pwInd < 6)) {
-						password[pwInd] = 'R';
+          if(isMainApp()) {
+            goRight();
+          } else if (isWelcomePage() && pwInd < 6) {
+            // password input
+            password[pwInd] = 'R';
             increasePasswordIndex();
-						timePasswordInputReceived = millis(); // start/reset timer
-					}
+            timePasswordInputReceived = millis(); // start/reset timer
+          }
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -720,24 +783,41 @@ PI_THREAD(btnCenterThread) {
 						}
 					}
 					// button released
+
+          // Long Press
 					if((millis()-timeButtonCenterPressed)>2000) {
-						// Sign out
-						goToWelcomePage();
-						while(digitalRead(BUTTON_CENTER)==1) {
-							// wait until user releases button
-						}
+            if(isMainApp()) {
+  						// Sign out
+  						goToWelcomePage();
+  						while(digitalRead(BUTTON_CENTER)==1) {
+  							// wait until user releases button
+  						}
+            } else { // already on welcome page
+              // Log in as guest
+              currentUser = '0';
+              sendPasswordSuccess();
+              goToMainPage(currentUser);
+              while(digitalRead(BUTTON_CENTER)==1) {
+                // wait until user releases button
+              }
+            }
 					}
-					// countCenter++;
-					// TO-DO: handle turn on/off tv
-					else if(currentApp=='2'){
-						// TO-DO: handle start/stop video
-					}
-					// password input
-					else if ((currentApp == 0) && (pwInd < 6)) {
-						password[pwInd] = 'C';
-            increasePasswordIndex();
-						timePasswordInputReceived = millis(); // start/reset timer
-					}
+          // Short Press
+          else { 
+            if(isMainApp()) {
+              if(isYoutube()){
+                // TODO: handle start/stop video
+              }
+            } else if (isWelcomePage() && (pwInd < 6)) {
+              // password input
+              password[pwInd] = 'C';
+              increasePasswordIndex();
+              timePasswordInputReceived = millis(); // start/reset timer
+            }
+
+          }
+					// TODO: handle turn on/off tv
+				
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -768,8 +848,8 @@ PI_THREAD(voiceThread) {
   //   model_filename = "resources/snowboy.umdl,resources/alexa.pmdl";
   //   sensitivity_str = "0.4,0.4";
   std::string resource_filename = "resources/common.res";
-  std::string model_filename = "resources/calendar.pmdl,resources/weather.pmdl,resources/youtube.pmdl,resources/miroslav.pmdl";
-  std::string sensitivity_str = "0.5,0.5,0.5,0.5";
+  std::string model_filename = "resources/weather.pmdl,resources/youtube.pmdl,resources/calendar.pmdl,resources/miroslav.pmdl, resources/sleep.pmdl, resources/wakeup.pmdl, resources/logout.pmdl";
+  std::string sensitivity_str = "0.5,0.5,0.5,0.5,0.5,0.5,0.5";
   float audio_gain = 1;
 
   // Initializes Snowboy detector.
@@ -798,6 +878,31 @@ PI_THREAD(voiceThread) {
   }
 
   return NULL;
+}
+
+void hotwordDetected(int hotword) {
+  if (hotword == 1) {
+    // weather
+    switchToApp(getWeatherIndex());
+  } else if (hotword == 2) {
+    // youtube
+    switchToApp(getYoutubeIndex());
+  } else if (hotword == 3) {
+    // calendar
+    switchToApp(getCalendarIndex());
+  } else if (hotword == 4) {
+    // miroslav
+    showMiroslav();
+  } else if (hotword == 5) {
+    // sleep
+    sleep();
+  } else if (hotword == 6) {
+    // wake
+    wake();
+  } else if (hotword == 7) {
+    // log out
+    logOut();
+  }
 }
 
 /** Initialize i/o, threads, and variables
