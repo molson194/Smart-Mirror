@@ -4,20 +4,12 @@ $(document).ready(function() {
     window.setInterval(showTemp(), 1000*60); // update temperature every minute
     document.onkeyup = KeyCheck;
 
-    initCalendar();
-    initWeather();
+    handleUserParam();
+    handleAppParam();
 
-    //TODO get params
-    var app = getParameterByName("app", window.location.href);
-    //var app = 1;
-    if (!app) app = 1; //default to calendar
-    currentAppIndex = app-1;
-    appFunctions[currentAppIndex]();
-
-    var user = getParameterByName("user", window.location.href);
-    //if(!user) switchToUser(anonymous);
-    switchToUser(user);
-    console.log('test');
+    window.setInterval(loadCalendar(), 1000*60*60); // update calendar every hour
+    window.setInterval(loadWeather(), 1000*60*60); // update weather every hour
+    //initYoutube(); ?
 
 });
 
@@ -26,30 +18,45 @@ $(document).ready(function() {
 // Your Client ID can be retrieved from your project in the Google Developer Console, https://console.developers.google.com
 var CLIENT_ID = '593428568477-kfk8jggviu6h69l3c19gmn6pcl5e8792.apps.googleusercontent.com';
 var CLIENT_SECRET = 'ivf-51KXZ108Zmo7AOhISxRb';
-var player;
 
-var jeremy = "1";
-var saeed = "2";
-var matthew = "3";
-var dukeball = "4";
-var refresh_tokens = {
-  "1": "1/AENYqu4C-mfy7IcHBMqdj1ZuOyV4p4V9j986HQEb5lE",
-  "4": "1/0oU9XNdTpQNGJpiHm7GXddHR9yCP_7Yp7FzSjqc6O54",
-  "3": "1/FUHoBAYNyK0zkOXxG2q8hV-o5TCCx5keY-Ez0ztWs9k",
-  "2": "1/YlfEGl6iHnJ3mqa84vaO3ij8ugux8yiYR0MlwPSn2P27QbjYypn-VYPPkkIGDqjM"
+// Users
+var guestId = "0";
+var guest = "Guest";
+var jeremy = "Jeremy";
+var saeed = "Saeed";
+var matthew = "Matthew";
+var dukeball = "Duke Club Ball";
+var users = {
+  "0" : {
+    "name" : guest
+  },
+  "1" : {
+    "name" : jeremy,
+    "access_token" : "ya29.GlugA0_DnCr4HHFNXMkG_s2t47IpQvF5YLwNpD3adV6bGM8lfnRP7fTDTHo6bSTsaDQkWk4aDysRtXIVIWoZp7mIgHkp0IQYiTkVyef-upoMxiFluuBjw_Qc9gBR",
+    "refresh_token" :  "1/AENYqu4C-mfy7IcHBMqdj1ZuOyV4p4V9j986HQEb5lE",
+  },
+  "2" : {
+    "name" : saeed,
+    "access_token" : "ya29.Ci-lA97hxELYARY-Xb6ogSpoPYkEYn-8cVQUtdtXMJBhL4-69sDFnrtZvijTf_Kjcg",
+    "refresh_token" : "1/YlfEGl6iHnJ3mqa84vaO3ij8ugux8yiYR0MlwPSn2P27QbjYypn-VYPPkkIGDqjM",
+  },
+  "3" : {
+    "name" : matthew,
+    "access_token" : "ya29.Ci-lA3RFvcahBluRI3mgWC3IbayDjh7bM9a-M_QD9BT2eWrJEhqQ53aKfGC-_6Xf2A",
+    "refresh_token" : "1/FUHoBAYNyK0zkOXxG2q8hV-o5TCCx5keY-Ez0ztWs9k",
+  },
+  "4" : {
+    "name" : dukeball,
+    "access_token" : "ya29.Ci-gAyJ60pWzoMVvh56V1TMezs4UKflwznoKNjCVvccW4piEF_85c7Ga6d94IvczUA",
+    "refresh_token" : "1/0oU9XNdTpQNGJpiHm7GXddHR9yCP_7Yp7FzSjqc6O54",
+  }
 }
 
-//todo maybe store access_tokens in local storage somewhere. doesn't really matter tho unless there's a limit on refreshing (keeping it as is will just result in an extra failed call using an old access token everytime the browser is reopened)
-var access_tokens = {
-  "1" : "ya29.GlugA0_DnCr4HHFNXMkG_s2t47IpQvF5YLwNpD3adV6bGM8lfnRP7fTDTHo6bSTsaDQkWk4aDysRtXIVIWoZp7mIgHkp0IQYiTkVyef-upoMxiFluuBjw_Qc9gBR",
-  "4" : "ya29.Ci-gAyJ60pWzoMVvh56V1TMezs4UKflwznoKNjCVvccW4piEF_85c7Ga6d94IvczUA",
-  "3" : "ya29.Ci-lA3RFvcahBluRI3mgWC3IbayDjh7bM9a-M_QD9BT2eWrJEhqQ53aKfGC-_6Xf2A",
-  "2" : "ya29.Ci-lA97hxELYARY-Xb6ogSpoPYkEYn-8cVQUtdtXMJBhL4-69sDFnrtZvijTf_Kjcg"
-};
+var current_user = guestId;
 
-var users = [jeremy, saeed, matthew, dukeball];
-var appFunctions = [showCalendar, showWeather, showYoutube];
+// Apps
 var currentAppIndex = 0;
+var player;
 
 
 function showDate() {
@@ -64,24 +71,94 @@ function showTemp() {
   });
 }
 
-function initCalendar() {
-
+function KeyCheck(e) {
+  var KeyID = (window.event) ? event.keyCode : e.keyCode;
+  switch(KeyID) {
+    case 37:
+      var appFunctions = getAppFunctions();
+      currentAppIndex = currentAppIndex - 1;
+      if (currentAppIndex == -1) currentAppIndex = appFunctions.length-1;
+      appFunctions[currentAppIndex]();
+      break;
+    case 39:
+      var appFunctions = getAppFunctions();
+      currentAppIndex = (currentAppIndex + 1) % appFunctions.length;
+      appFunctions[currentAppIndex]();
+      break;
+    case 67: //c
+      if(!isGuest()) showCalendar();
+      break;
+    case 77: //m
+      showMiroslav();
+      break;
+    case 87: //w
+      showWeather();
+      break;
+    case 89: // y
+      showYoutube();
+      break;
+  }
 }
 
-function initWeather() {
-  $.getJSON("http://api.openweathermap.org/data/2.5/forecast?q=Durham,us&mode=json&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
-      console.log(json);
-      for (var i = 0; i < 6; i++) {
-        var date = new Date(json.list[i].dt*1000);
-        console.log(date);
-        var time = ((date.getUTCHours()-5 > 0) ? date.getUTCHours()-5 : date.getUTCHours()+7) % 12;
-        $("#weather" + i).html("<td>" + time + ":00" + "</td><td>" + json.list[i].weather[0].main + "</td><td>" + Math.round(json.list[i].main.temp * 9/5 - 459.67) + "&deg;F</td><td>" + json.list[i].main.humidity + "%</td><td>" + json.list[i].wind.speed + "</td>");
-      }
-    });
+function handleAppParam() {
+  var app = getParameterByName("app", window.location.href);
+  if(isGuest()) {
+    currentAppIndex = 0; // default guest to weather
+  } else if (app == "calendar") {
+    currentAppIndex = 0;
+  } else if (app == "weather") {
+    currentAppIndex = 1;
+  } else if (app == "youtube") {
+    currentAppIndex = 2;
+  } else {
+    currentAppIndex = 0; // default to calendar
+  }
+
+  getAppFunctions()[currentAppIndex]();
 }
 
-function changeYoutube() {
+function handleUserParam() {
+  var user = getParameterByName("user", window.location.href);
+  if(!user) switchToUser(guestId);
+  switchToUser(user);
+}
 
+function getParameterByName(name, url) {
+  if (!url) {
+    url = window.location.href;
+  }
+  name = name.replace(/[\[\]]/g, "\\$&");
+  var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
+      results = regex.exec(url);
+  if (!results) return null;
+  if (!results[2]) return '';
+  return decodeURIComponent(results[2].replace(/\+/g, " "));
+}
+
+function getAppFunctions() {
+  if(isGuest()) {
+    return [showWeather, showYoutube];
+  } else {
+    return [showCalendar, showWeather, showYoutube];
+  }
+}
+
+function isGuest() {
+  return current_user == guestId;
+}
+
+function switchToUser(user) {
+  console.log("switch to user " + user);
+  if (!(user in users) || user == guestId) {
+    current_user = guestId;
+    clearEvents();
+    showWeather();
+  } else {
+    current_user = user;
+    showCalendar();
+  }
+
+  document.getElementById('user').innerHTML = users[current_user].name;
 }
 
 function showDiv(id) {
@@ -102,16 +179,20 @@ function hideDiv(id) {
 
 function showCalendar() {
   console.log("calendar");
-  showDiv('calendar');
-  hideDiv('weather');
-  hideDiv('youtube');
-  hideDiv('miroslav');
-
-
+  if(isGuest()) {
+    showWeather();
+  } else {
+    currentAppIndex = 0;
+    showDiv('calendar');
+    hideDiv('weather');
+    hideDiv('youtube');
+    hideDiv('miroslav');
+  }
 }
 
 function showWeather() {
   console.log("weather");
+  currentAppIndex = isGuest() ? 0 : 1;
   hideDiv('calendar');
   showDiv('weather');
   hideDiv('youtube');
@@ -122,6 +203,7 @@ function showWeather() {
 
 function showYoutube() {
   console.log("youtube");
+  currentAppIndex = isGuest() ? 1 : 2;
   hideDiv('weather');
   hideDiv('calendar');
   showDiv('youtube');
@@ -131,107 +213,31 @@ function showYoutube() {
 
 function showMiroslav() {
   console.log("miroslav");
+  currentAppIndex = isGuest() ? 2 : 3;
   hideDiv('weather');
   hideDiv('calendar');
   hideDiv('youtube');
   showDiv('miroslav');
 }
 
-
-
-function KeyCheck(e) {
-  var KeyID = (window.event) ? event.keyCode : e.keyCode;
-	switch(KeyID) {
-    case 37:
-      currentAppIndex = currentAppIndex - 1;
-      if (currentAppIndex == -1) currentAppIndex = 2;
-      appFunctions[currentAppIndex]();
-      break;
-    case 39:
-      currentAppIndex = (currentAppIndex + 1) % appFunctions.length;
-      appFunctions[currentAppIndex]();
-		  break;
-    case 38: // up
-      console.log('Up was pressed. Chaning to next user.\n');
-      changeToNextUser();
-      break;
-    case 40: // down
-      console.log('Down was pressed. Changing to previous user.\n');
-      changeToPreviousUser();
-      break;
-	case 67: //c
-	  currentAppIndex = 0;
-	  appFunctions[currentAppIndex]();
-	  console.log('calendar');
-	  break;
-	case 77: //m
-	  currentAppIndex = 3;
-    showMiroslav();
-	  break;
-	case 87: //w
-	  currentAppIndex = 1;
-	  appFunctions[currentAppIndex]();
-	  break;
-	case 89: // y
-	  currentAppIndex = 2;
-	  appFunctions[currentAppIndex]();
-	  break;
-}
-
-function getParameterByName(name, url) {
-  if (!url) {
-    url = window.location.href;
-  }
-  name = name.replace(/[\[\]]/g, "\\$&");
-  var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
-      results = regex.exec(url);
-  if (!results) return null;
-  if (!results[2]) return '';
-  return decodeURIComponent(results[2].replace(/\+/g, " "));
-}
-
-function switchToUser(user) {
-  //if(user in users) { //todo figure out syntax
-    current_user = user;
-    var userDiv = document.getElementById('user');
-    userDiv.innerHTML = current_user + "'s calendar";
-    loadCalendar();
-
-  //}
-}
-
-function switchToUserWithIndex(index) {
-  switchToUser(users[index]);
-}
-
-function switchToUserWithPassword(password) {
-  if(password in passwords) {
-    switchToUser(passwords[password]);
-  }
-}
-
-function getCurrentUserIndex() {
-  for (var i = 0; i < users.length; i++) {
-    if(users[i]==current_user){
-      return i;
+function loadWeather() {
+  $.getJSON("http://api.openweathermap.org/data/2.5/forecast?q=Durham,us&mode=json&appid=e36c51e09e53c3817faab9a9d69ce41d",function(json){
+    console.log(json);
+    for (var i = 0; i < 6; i++) {
+      var date = new Date(json.list[i].dt*1000);
+      console.log(date);
+      var time = ((date.getUTCHours()-5 > 0) ? date.getUTCHours()-5 : date.getUTCHours()+7) % 12;
+      $("#weather" + i).html("<td>" + time + ":00" + "</td><td>" + json.list[i].weather[0].main + "</td><td>" + Math.round(json.list[i].main.temp * 9/5 - 459.67) + "&deg;F</td><td>" + json.list[i].main.humidity + "%</td><td>" + json.list[i].wind.speed + "</td>");
     }
-  }
-}
-function changeToPreviousUser() {
-  var currentUserIndex = getCurrentUserIndex();
-  var newUserIndex = currentUserIndex == 0 ? users.length - 1 : currentUserIndex - 1;
-  switchToUserWithIndex(newUserIndex);
+  });
 }
 
-function changeToNextUser() {
-  var currentUserIndex = getCurrentUserIndex();
-  var newUserIndex = currentUserIndex == users.length - 1  ? 0 : currentUserIndex + 1;
-  switchToUserWithIndex(newUserIndex);
-}
 function loadCalendar(){
-  console.log("loading calendar for user: " + current_user + ".\n");
+  if(current_user == guestId) return;
+  console.log("loading calendar for user: " + users[current_user].name + ".\n");
   // Retrieve today's events for current user
-  var access_token = access_tokens[current_user];
+
+  var access_token = users[current_user].access_token;
   var calendarParams = getCalendarRequestParams(access_token);
   var calendarUrl = getCalendarURL(calendarParams);
   var calendarRequest = $.getJSON(calendarUrl);
@@ -245,7 +251,7 @@ function loadCalendar(){
     console.log("Failed to retreive calendar with access token.\nRequesting a new one using refresh token...\n");
 
     // Request new access token
-    var refresh_token = refresh_tokens[current_user];
+    var refresh_token = users[current_user].refresh_token;
     var tokenURL = "https://www.googleapis.com/oauth2/v4/token";
     var payload = {
       client_id: CLIENT_ID,
@@ -257,7 +263,7 @@ function loadCalendar(){
     accessTokenRequest.done(function(json) {
       console.log("Successfully retrieved a new access token.\n")
       access_token = json.access_token;
-      access_tokens[current_user] = access_token;
+      users[current_user].access_token = access_token;
       calendarParams = getCalendarRequestParams(access_token);
       calendarUrl = getCalendarURL(calendarParams);
 
@@ -385,4 +391,8 @@ function onPlayerStateChange(event) {
 
         });
     }
+}
+
+function changeYoutube() {
+
 }
