@@ -8,6 +8,8 @@ html, body {
 <script type="text/javascript">
 
 $(document).ready(function() {
+	document.onkeyup = KeyCheck;
+
     var date = new Date(Date.now());
     $("#time").html(date.toLocaleTimeString());
     $("#date").html(date.toLocaleDateString());
@@ -35,7 +37,6 @@ window.setInterval(function(){
   $("#date").html(date.toLocaleDateString());
 }, 1000);
 
-document.onkeyup = KeyCheck;
 
 var numStars = 0;
 var passwordLength = 6;
@@ -43,12 +44,7 @@ var passwordLength = 6;
 function KeyCheck(e) {
   var KeyID = (window.event) ? event.keyCode : e.keyCode;
 	switch(KeyID) {
-    case 37:
-      window.location = "page2.html";
-      break;
-    case 39:
-		  window.location = "page1.html";
-		  break;
+  
     case 80: // p (password)
       addStar();
       break;

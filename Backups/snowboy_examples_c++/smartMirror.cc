@@ -82,8 +82,9 @@ short phAvg; // photoresistor running average
 // char runningAvgN = 8; // number of values in running average
 char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
-std::string firefoxCall = "sudo -u $SUDO_USER firefox ";
-string baseURL = "localhost:8000/";
+//std::string firefoxCall = "sudo -u $SUDO_USER firefox ";
+string chromiumCall = "sudo -u $SUDO_USER chromium-browser --start-fullscreen --app=";
+string baseURL = "http://localhost:8000/";
 string welcomePage = "welcome.html";
 string mainPage = "mirror.html";
 //string apps[] = {"welcome", "calendar", "weather", "youtube"};
@@ -105,18 +106,19 @@ string sleep = "sh o.sh";
 string wake = "sh w.sh";
 */
 
-string goLeftCmd = "sh key.sh Left";
-string goRightCmd = "sh key.sh Right";
-string goCalendar = "sh key.sh c";
-string goWeather = "sh key.sh w";
-string goYoutube = "sh key.sh y";
-string goMiroslav = "sh key.sh m";
-string addStar = "sh key.sh p";
-string clearStarsCmd = "sh key.sh r";
-string passwordSuccess = "sh key.sh s";
-string passwordFail = "sh key.sh f";
-string sleepCmd = "sh key.sh o";
-string wakeCmd = "sh key.sh w";
+//string closeOldTab = "sh key.sh ctrl+1 && sh key.sh ctrl+w"; 
+string goLeftCmd = "sh key.sh Left ";
+string goRightCmd = "sh key.sh Right ";
+string goCalendar = "sh key.sh c ";
+string goWeather = "sh key.sh w ";
+string goYoutube = "sh key.sh y ";
+string goMiroslav = "sh key.sh m ";
+string addStar = "sh key.sh p ";
+string clearStarsCmd = "sh key.sh r ";
+string passwordSuccess = "sh key.sh s ";
+string passwordFail = "sh key.sh f ";
+string sleepCmd = "sh key.sh o ";
+string wakeCmd = "sh key.sh w ";
 
 vector<string> appCommands;
 vector<string> guestAppCommands;
@@ -167,6 +169,7 @@ void wake();
 void logOut();
 vector<string> getAppCommands();
 void hotwordDetected(int hotword);
+void initWelcomePage();
 
 ///////Voice
 
@@ -343,25 +346,28 @@ int main(void) {
 		return 1;
 
 	// Start web app
-	system("fuser -k tcp/8000"); // kill process runnning localhost:8000
+	//system("fuser -k tcp/8000"); // kill process runnning localhost:8000
+	system("killall python");
 	system("python -m SimpleHTTPServer 8000 &");
 	currentUser = '0';
 	currentApp = 0;
+	/*
 	appCommands.push_back(goWeather);
-appCommands.push_back(goYoutube);
-appCommands.push_back(goCalendar);
-guestAppCommands.push_back(goWeather);
-guestAppCommands.push_back(goYoutube);
-	goToWelcomePage();
+	appCommands.push_back(goYoutube);
+	appCommands.push_back(goCalendar);
+	guestAppCommands.push_back(goWeather);
+	guestAppCommands.push_back(goYoutube);
+	* */
+	//initWelcomePage();
 
 	// Loop until shutdown
 	while(!terminateCode) {
 		// Password entry step
-		if (currentApp == 0) {
+		if (isWelcomePage()) {
 			if (pwInd == 6)
 			{
-        bool success = true;
-        currentApp = '1';
+				bool success = true;
+				currentApp = '1';
 				if(strncmp(password, USER1_PASSWORD, 6) == 0) {
 					currentUser = '1';
 					printf("Logged in as %c!\n", currentUser);
@@ -374,21 +380,16 @@ guestAppCommands.push_back(goYoutube);
 					currentUser = '3';
 					printf("Logged in as %c!\n", currentUser);
 					//currentApp = 1;
-				} /*else if(strncmp(password, GUEST_PASSWORD, 6) == 0) {
-					currentUser = '0';
-					printf("Logged in as %c!\n", currentUser);
-					currentApp = 2;
-				} */
-        else {
-          success = false;
+				} else {
+					success = false;
 					currentApp = 0;
 				}
-        handlePassword(success);
+				handlePassword(success);
 			} else if(pwInd > 0) {
 				if((millis() - timePasswordInputReceived)>3000) {
 					// timeout in 3 seconds
-					goToWelcomePage();
-          clearPassword();
+					//goToWelcomePage();
+					clearPassword();
 				}
 			}
 			
@@ -411,8 +412,8 @@ guestAppCommands.push_back(goYoutube);
 		// printf("left: %d\n", countLeft);
 		// printf("right: %d\n", countRight);
 		// printf("center: %d\n", countCenter);
-		printf("phAvg: %d\n", phAvg);
-		printf("Password entered so far: %s\n", password);
+		//printf("phAvg: %d\n", phAvg);
+		//printf("Password entered so far: %s\n", password);
 		// countLeft = 0;
 		// countRight = 0;
 		// countCenter = 0;
@@ -434,6 +435,7 @@ void clearPassword() {
 
 void handlePassword(bool success) {
   if(success) {
+	  printf("success");
      sendPasswordSuccess();
      goToMainPage(currentUser);
   } else {
@@ -453,11 +455,11 @@ void sendPasswordFail() {
 }
 
 void goToWelcomePage() {
-	currentApp = getWelcomePageIndex();
-	currentUser = '0';
-	string url = baseURL;
+  currentApp = getWelcomePageIndex();
+  currentUser = '0';
+  string url = baseURL;
   url += welcomePage;
-  url += " &";
+  //url += " &";
 
   openURL(url);
 }
@@ -470,19 +472,31 @@ void goToMainPage(char user) {
   url += "?";
   url += "user="; 
   url += user;
-  url += " &";
+  //url += " &";
 
   openURL(url);
 }
 
-void openURL(string url) {
+void initWelcomePage() {
+  currentApp = getWelcomePageIndex();
+  currentUser = '0';
+  string url = baseURL;
+  url += welcomePage;
+  //url += " &";
   //string command = "open -a safari " + url;
-  string command = firefoxCall + url;
+  string command = chromiumCall + url;
   system(command.c_str());
+  //system(closeOldTab.c_str());
+}
+
+void openURL(string url) {
+  string command = "sh url.sh " + url;
+  printf(command.c_str());
+  //system(command.c_str());
 }
 
 vector<string> getAppCommands() {
-  if(isGuest()) {
+  if(!isGuest()) {
     return appCommands;
   } else {
     return guestAppCommands;
@@ -611,7 +625,8 @@ int ledDelay(int led, int delayDuration) {
 	// delay and check app page regularly
 	for(;i<delayDuration; i+=LED_DELAY_PERIOD) {
 		delay(LED_DELAY_PERIOD); // partial delay
-		if(currentApp!='2') {
+		if(!isYoutube()) {
+			printf("TIMER TERMINATED\n");
 			turnOffLEDs(); // turn off all LEDs
 			ledThreadRunning = 0; // led thread will exit
 			return 1; // app page changed
@@ -761,6 +776,7 @@ PI_THREAD(btnRightThread) {
 					// button released
           if(isMainApp()) {
             goRight();
+            printf("RIGHT\n");
           } else if (isWelcomePage() && pwInd < 6) {
             // password input
             password[pwInd] = 'R';
@@ -859,7 +875,7 @@ PI_THREAD(voiceThread) {
   //   model_filename = "resources/snowboy.umdl,resources/alexa.pmdl";
   //   sensitivity_str = "0.4,0.4";
   std::string resource_filename = "resources/common.res";
-  std::string model_filename = "resources/weather.pmdl,resources/youtube.pmdl,resources/calendar.pmdl,resources/miroslav.pmdl, resources/sleep.pmdl, resources/wakeup.pmdl, resources/logout.pmdl";
+  std::string model_filename = "resources/weather.pmdl,resources/youtube.pmdl,resources/calendar.pmdl,resources/miroslav.pmdl,resources/sleep.pmdl,resources/wakeup.pmdl,resources/logout.pmdl";
   std::string sensitivity_str = "0.5,0.5,0.5,0.5,0.5,0.5,0.5";
   float audio_gain = 1;
 
@@ -892,6 +908,7 @@ PI_THREAD(voiceThread) {
 }
 
 void hotwordDetected(int hotword) {
+	/*
   if (hotword == 1) {
     // weather
     switchToApp(getWeatherIndex());
@@ -912,8 +929,9 @@ void hotwordDetected(int hotword) {
     wake();
   } else if (hotword == 7) {
     // log out
-    logOut();
+    //logOut();
   }
+  */
 }
 
 /** Initialize i/o, threads, and variables
@@ -929,7 +947,6 @@ int rpi_init(){
 	ledThreadRunning = 0;
 	phAvg = 64; // initialize to mean (range [0, 127])
 	terminateCode = 0;
-  clearPassword();
 	blockButtonPress = 0; // unblock button presses
 	timePasswordInputReceived = 0;
 
