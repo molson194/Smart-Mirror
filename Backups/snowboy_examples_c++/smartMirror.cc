@@ -90,15 +90,7 @@ string mainPage = "mirror.html";
 
 //string apps[] = {"weather", "youtube" "calendar"};
 //string guestApps[] = {"weather", "youtube"};
-
-vector<string> appCommands;
-apps.push_back(goWeather);
-apps.push_back(goYoutube);
-apps.push_back(goCalendar);
-vector<string> guestAppCommands;
-apps.push_back(goWeather);
-apps.push_back(goYoutube);
-
+/*
 string goLeft = "sh left.sh";
 string goRight = "sh right.sh";
 string goCalendar = "sh c.sh";
@@ -111,22 +103,23 @@ string passwordSuccess = "sh s.sh";
 string passwordFail = "sh f.sh";
 string sleep = "sh o.sh";
 string wake = "sh w.sh";
+*/
 
-/*
-string goLeft = "sh key.sh Left";
-string goRight = "sh key.sh Right";
+string goLeftCmd = "sh key.sh Left";
+string goRightCmd = "sh key.sh Right";
 string goCalendar = "sh key.sh c";
 string goWeather = "sh key.sh w";
 string goYoutube = "sh key.sh y";
 string goMiroslav = "sh key.sh m";
 string addStar = "sh key.sh p";
-string clearStars = "sh key.sh r";
+string clearStarsCmd = "sh key.sh r";
 string passwordSuccess = "sh key.sh s";
 string passwordFail = "sh key.sh f";
-string sleep = "sh key.sh o";
-string wake = "sh key.sh w";
+string sleepCmd = "sh key.sh o";
+string wakeCmd = "sh key.sh w";
 
-*/
+vector<string> appCommands;
+vector<string> guestAppCommands;
 
 char password[6]; // array when password entered
 int pwInd; // password current index (track password input)
@@ -148,10 +141,23 @@ void goToWelcomePage();
 void goToMainPage(char user);
 void openURL(string url);
 void increasePasswordIndex();
-void addStar();
 void sendPasswordSuccess();
 void sendPasswordFail();
 void handlePassword(bool success);
+void clearPassword();
+vector<string> getAppCommands();
+bool isWelcomePage();
+bool isMainApp();
+bool isWeather();
+bool isYoutube();
+bool isCalendar();
+bool isCalendar(int app);
+int getCalendarIndex();
+int getYoutubeIndex();
+int getWeatherIndex();
+int getWelcomePageIndex();
+int getMiroslavIndex();
+bool isGuest(); 
 void goLeft();
 void goRight();
 void switchToApp(int appIndex);
@@ -341,6 +347,11 @@ int main(void) {
 	system("python -m SimpleHTTPServer 8000 &");
 	currentUser = '0';
 	currentApp = 0;
+	appCommands.push_back(goWeather);
+appCommands.push_back(goYoutube);
+appCommands.push_back(goCalendar);
+guestAppCommands.push_back(goWeather);
+guestAppCommands.push_back(goYoutube);
 	goToWelcomePage();
 
 	// Loop until shutdown
@@ -384,7 +395,7 @@ int main(void) {
 		}
 		
 		// Youtube/Video page
-		if(isYoutube()) && !ledThreadRunning) {
+		if(isYoutube() && !ledThreadRunning) {
 			// Start LED thread/timer!
 			if(piThreadCreate(ledThread) != 0){
 				fprintf(stderr, "Unable to start LED thread: %s\n", strerror(errno));
@@ -418,7 +429,7 @@ void increasePasswordIndex() {
 
 void clearPassword() {
   pwInd = 0;
-  system(clearStars.c_str());
+  system(clearStarsCmd.c_str());
 }
 
 void handlePassword(bool success) {
@@ -426,7 +437,7 @@ void handlePassword(bool success) {
      sendPasswordSuccess();
      goToMainPage(currentUser);
   } else {
-    clearStars();
+    clearPassword();
     sendPasswordFail();
   }
 }
@@ -526,18 +537,18 @@ bool isGuest() {
 }
 
 void goLeft() {
-  if(isMainApp()) {}
+  if(isMainApp()) {
     currentApp--;
     if(currentApp == -1) currentApp = getAppCommands().size() - 1;
-    system(goLeft.c_str());
+    system(goLeftCmd.c_str());
   }
 }
 
 void goRight() {
   if(isMainApp()) {
     currentApp++;
-    if(currentApp == getAppCommands().size) currentApp = 0;
-    system(goRight.c_str());
+    if(currentApp == getAppCommands().size()) currentApp = 0;
+    system(goRightCmd.c_str());
   }
 }
 
@@ -545,7 +556,7 @@ void switchToApp(int appIndex) {
   if(isMainApp()) {
     if(isCalendar(appIndex) && isGuest()) return;
     currentApp =  appIndex;
-    system(getAppCommands(currentApp).c_str());
+    system(getAppCommands().at(currentApp).c_str());
   }
  
 }
@@ -558,17 +569,17 @@ void showMiroslav() {
 
 void sleep() {
   if(isWelcomePage()) {
-    system(sleep.c_str());
+    system(sleepCmd.c_str());
   } else {
     //todo make sure it does this synchronously (I don't think it does right now)
     goToWelcomePage();
-    system(sleep.c_str());
+    system(sleepCmd.c_str());
   }
 }
 
 void wake() {
   if(isWelcomePage()) {
-    system(wake.c_str());
+    system(wakeCmd.c_str());
   }
 }
 
@@ -608,7 +619,7 @@ int ledDelay(int led, int delayDuration) {
 	}
 	unsigned long t2 = millis();
 	if ((t2-t1-delayDuration)>1000) {
-		printf("LED%d: Delay time is %d\n", led, t2-t1);
+		//printf("LED%d: Delay time is %d\n", led, t2-t1);
 	}
 	return 0;
 }
