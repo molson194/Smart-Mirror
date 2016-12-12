@@ -35,14 +35,14 @@ using namespace std;
 
 #define LED1 21 // Phyiscal 40
 #define LED2 20 // Phyiscal 38
-// #define LED3 26 // Phyiscal 37
-// #define LED4 16 // Phyiscal 36
-// #define LED5 19 // Phyiscal 35
-// #define LED6 6 // Phyiscal 31
+#define LED3 26 // Phyiscal 37
+#define LED5 16 // Phyiscal 36
+#define LED4 19 // Phyiscal 35
+#define LED6 6 // Phyiscal 31
 // #define LED7 5 // Phyiscal 29
 // #define LED8 0 // Phyiscal 27
 
-#define RED 18 // Phyiscal 12
+//#define RED 18 // Phyiscal 12
 #define GREEN 13 // Phyiscal 33
 #define BLUE 12 // Phyiscal 32
 
@@ -66,6 +66,11 @@ using namespace std;
 #define BUTTON_WAIT 25 // in milliseconds
 #define LINK_PAGE_NUMBER_INDEX 46
 #define LINK_USER_ID_INDEX 58
+#define NO_USER -1
+#define GUEST_ID 0
+#define USER1_ID 1
+#define USER2_ID 2
+#define USER3_ID 3
 const char USER1_PASSWORD[] = "LCRLCR";
 const char USER2_PASSWORD[] = "RCLRCL";
 const char USER3_PASSWORD[] = "LLCCRR";
@@ -73,40 +78,14 @@ const char GUEST_PASSWORD[] = "CCCCCC";
 
 
 /* Global Variables */
-// volatile int countLeft = 0;
-// volatile int countRight = 0;
-// volatile int countCenter = 0;
 int currentApp; // current web app page (Welcome '0', Weather 1', Youtube '2', or Calendar '3')
 char ledThreadRunning; // boolean for led thread
 short phAvg; // photoresistor running average
-// char runningAvgN = 8; // number of values in running average
 char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
-//std::string firefoxCall = "sudo -u $SUDO_USER firefox ";
-string chromiumCall = "sudo -u $SUDO_USER chromium-browser --start-fullscreen --app=";
-string baseURL = "http://localhost:8000/";
-string welcomePage = "welcome.html";
-string mainPage = "mirror.html";
-//string apps[] = {"welcome", "calendar", "weather", "youtube"};
+string appURL = "http://localhost:8000/smartmirror.html";
+string chromiumCall = "sudo -u $SUDO_USER chromium-browser --start-fullscreen --app=" + appURL;
 
-//string apps[] = {"weather", "youtube" "calendar"};
-//string guestApps[] = {"weather", "youtube"};
-/*
-string goLeft = "sh left.sh";
-string goRight = "sh right.sh";
-string goCalendar = "sh c.sh";
-string goWeather = "sh w.sh";
-string goYoutube = "sh y.sh";
-string goMiroslav = "sh m.sh";
-string addStar = "sh p.sh";
-string clearStars = "sh r.sh";
-string passwordSuccess = "sh s.sh";
-string passwordFail = "sh f.sh";
-string sleep = "sh o.sh";
-string wake = "sh w.sh";
-*/
-
-//string closeOldTab = "sh key.sh ctrl+1 && sh key.sh ctrl+w"; 
 string goLeftCmd = "sh key.sh Left ";
 string goRightCmd = "sh key.sh Right ";
 string goCalendar = "sh key.sh c ";
@@ -117,15 +96,17 @@ string addStar = "sh key.sh p ";
 string clearStarsCmd = "sh key.sh r ";
 string passwordSuccess = "sh key.sh s ";
 string passwordFail = "sh key.sh f ";
-string sleepCmd = "sh key.sh o ";
-string wakeCmd = "sh key.sh w ";
+string sleepCmd = "sh key.sh z ";
+string wakeCmd = "sh key.sh o ";
+string logoutCmd = "sh key.sh l";
+string loginCmd = "sh key.sh ";
 
 vector<string> appCommands;
 vector<string> guestAppCommands;
 
 char password[6]; // array when password entered
 int pwInd; // password current index (track password input)
-char currentUser; // current user ID ('0' -> guest, '1' -> user1, etc)
+int currentUser; // current user ID ('0' -> guest, '1' -> user1, etc)
 unsigned long timePasswordInputReceived; // time stamp when password input received
 unsigned long timeButtonCenterPressed; // time stamp when center button was pressed
 char blockButtonPress; // boolean to indicate when to block button presses
@@ -140,7 +121,7 @@ void turnOffLEDs(); // turns off all LEDs
 void turnOnLEDs(); // turns on all LEDs
 void turnOffPWM(); // turns off all PWM outputs
 void goToWelcomePage();
-void goToMainPage(char user);
+void goToMainPage(int user);
 void openURL(string url);
 void increasePasswordIndex();
 void sendPasswordSuccess();
@@ -344,22 +325,7 @@ int main(void) {
 	
 	if (rpi_init() != 0)
 		return 1;
-
-	// Start web app
-	//system("fuser -k tcp/8000"); // kill process runnning localhost:8000
-	system("killall python");
-	system("python -m SimpleHTTPServer 8000 &");
-	currentUser = '0';
-	currentApp = 0;
-	/*
-	appCommands.push_back(goWeather);
-	appCommands.push_back(goYoutube);
-	appCommands.push_back(goCalendar);
-	guestAppCommands.push_back(goWeather);
-	guestAppCommands.push_back(goYoutube);
-	* */
-	//initWelcomePage();
-
+	
 	// Loop until shutdown
 	while(!terminateCode) {
 		// Password entry step
@@ -367,28 +333,25 @@ int main(void) {
 			if (pwInd == 6)
 			{
 				bool success = true;
-				currentApp = '1';
+				currentApp = getCalendarIndex();
 				if(strncmp(password, USER1_PASSWORD, 6) == 0) {
-					currentUser = '1';
-					printf("Logged in as %c!\n", currentUser);
-					//currentApp = 1;
+					currentUser = USER1_ID;
+					printf("Logged in as %d!\n", currentUser);
 				} else if(strncmp(password, USER2_PASSWORD, 6) == 0) {
-					currentUser = '2';
-					printf("Logged in as %c!\n", currentUser);
-					//currentApp = 1;
+					currentUser = USER2_ID;
+					printf("Logged in as %d!\n", currentUser);
 				} else if(strncmp(password, USER3_PASSWORD, 6) == 0) {
-					currentUser = '3';
-					printf("Logged in as %c!\n", currentUser);
-					//currentApp = 1;
+					currentUser = USER3_ID;
+					printf("Logged in as %d!\n", currentUser);
 				} else {
 					success = false;
-					currentApp = 0;
+					currentApp = getWelcomePageIndex();
 				}
+				printf("success boolean %d", success);
 				handlePassword(success);
 			} else if(pwInd > 0) {
 				if((millis() - timePasswordInputReceived)>3000) {
 					// timeout in 3 seconds
-					//goToWelcomePage();
 					clearPassword();
 				}
 			}
@@ -409,14 +372,7 @@ int main(void) {
 
 		// TEMPORARY
 		// printf("Web Page %c\n", currentApp);
-		// printf("left: %d\n", countLeft);
-		// printf("right: %d\n", countRight);
-		// printf("center: %d\n", countCenter);
-		//printf("phAvg: %d\n", phAvg);
-		//printf("Password entered so far: %s\n", password);
-		// countLeft = 0;
-		// countRight = 0;
-		// countCenter = 0;
+		fprintf(stderr, "Password entered so far: %s\n", password);
 		delay(2000);
 	}
 
@@ -454,46 +410,26 @@ void sendPasswordFail() {
   system(passwordFail.c_str());
 }
 
-void goToWelcomePage() {
+void goToWelcomePage() { // change to logout() -- press l
   currentApp = getWelcomePageIndex();
-  currentUser = '0';
-  string url = baseURL;
-  url += welcomePage;
-  //url += " &";
-
-  openURL(url);
+  currentUser = NO_USER;
+  system(logoutCmd.c_str());
 }
 
-void goToMainPage(char user) {
+void goToMainPage(int user) { // press 1, 2, 3  or 0 for guest. sh key.sh user
   currentUser = user;
   currentApp = isGuest() ? getWeatherIndex() : getCalendarIndex();
-  string url = baseURL;
-  url += mainPage;
-  url += "?";
-  url += "user="; 
-  url += user;
-  //url += " &";
-
-  openURL(url);
+  string cmd = loginCmd + to_string(currentUser);
+  system(cmd.c_str());
 }
 
-void initWelcomePage() {
+void initWelcomePage() { // chromiumCall
   currentApp = getWelcomePageIndex();
-  currentUser = '0';
-  string url = baseURL;
-  url += welcomePage;
-  //url += " &";
-  //string command = "open -a safari " + url;
-  string command = chromiumCall + url;
-  system(command.c_str());
-  //system(closeOldTab.c_str());
+  currentUser = NO_USER;
+  system(chromiumCall.c_str());
 }
 
-void openURL(string url) {
-  string command = "sh url.sh " + url;
-  printf(command.c_str());
-  //system(command.c_str());
-}
+
 
 vector<string> getAppCommands() {
   if(!isGuest()) {
@@ -503,6 +439,10 @@ vector<string> getAppCommands() {
   }
 }
 
+// TODO: refactor (replace isWelcomePage with isLoggedOut
+bool isLoggedIn() {
+  return currentUser != NO_USER;
+}
 bool isWelcomePage() {
   return currentApp == getWelcomePageIndex();
 }
@@ -510,6 +450,9 @@ bool isWelcomePage() {
 bool isMainApp() {
   return !isWelcomePage();
 }
+
+
+
 
 bool isWeather() {
   return currentApp == getWeatherIndex();
@@ -547,8 +490,10 @@ int getMiroslavIndex() {
 }
 
 bool isGuest() {
-  return currentUser == '0';
+  return currentUser == GUEST_ID;
 }
+
+
 
 void goLeft() {
   if(isMainApp()) {
@@ -582,19 +527,13 @@ void showMiroslav() {
 }
 
 void sleep() {
-  if(isWelcomePage()) {
-    system(sleepCmd.c_str());
-  } else {
-    //todo make sure it does this synchronously (I don't think it does right now)
-    goToWelcomePage();
-    system(sleepCmd.c_str());
-  }
+  system(sleepCmd.c_str());
+  
 }
 
 void wake() {
-  if(isWelcomePage()) {
     system(wakeCmd.c_str());
-  }
+  
 }
 
 void logOut() {
@@ -647,7 +586,7 @@ int ledDelay(int led, int delayDuration) {
  */
 PI_THREAD(ledThread) {
 	piHiPri(50); // average priority
-	// Turn on one LED every 20 seconds
+	// Turn on one LED every 15 seconds
 	// if currentApp changes, turn off LEDs and close thread 
 	if(ledDelay(1, LED_SWITCH_TIME)) return NULL;
 	// TODO: do we want to wait longer?
@@ -655,18 +594,14 @@ PI_THREAD(ledThread) {
 	digitalWrite(LED1, HIGH);
 	if(ledDelay(2, LED_SWITCH_TIME)) return NULL;
 	digitalWrite(LED2, HIGH);
-	// if(ledDelay(3, LED_SWITCH_TIME)) return NULL;
-	// digitalWrite(LED3, HIGH);
-	// if(ledDelay(4, LED_SWITCH_TIME)) return NULL;
-	// digitalWrite(LED4, HIGH);
-	// if(ledDelay(5, LED_SWITCH_TIME)) return NULL;
-	// digitalWrite(LED5, HIGH);
-	// if(ledDelay(6, LED_SWITCH_TIME)) return NULL;
-	// digitalWrite(LED6, HIGH);
-	// if(ledDelay(7, LED_SWITCH_TIME)) return NULL;
-	// digitalWrite(LED7, HIGH);
-	// if(ledDelay(8, LED_SWITCH_TIME)) return NULL;
-	// digitalWrite(LED8, HIGH);
+	if(ledDelay(3, LED_SWITCH_TIME)) return NULL;
+	digitalWrite(LED3, HIGH);
+	if(ledDelay(4, LED_SWITCH_TIME)) return NULL;
+	digitalWrite(LED4, HIGH);
+	if(ledDelay(5, LED_SWITCH_TIME)) return NULL;
+	digitalWrite(LED5, HIGH);
+	if(ledDelay(6, LED_SWITCH_TIME)) return NULL;
+	digitalWrite(LED6, HIGH);
 
 	// Blink for LED_SWITCH_TIME to indicate timer done
 	int i = 0;
@@ -716,9 +651,9 @@ PI_THREAD(phresThread) {
 		// LED color
 		if (ledThreadRunning==1) {
 			// TODO find a good adjustment formula
-			pwmWrite(BLUE, 1023-(phAvg*2));
-			pwmWrite(RED, 600-(phAvg*2));
-			pwmWrite(GREEN, 400-(phAvg*2));
+			pwmWrite(BLUE, 512-(phAvg*2));
+			//pwmWrite(RED, 600-(phAvg*2));
+			pwmWrite(GREEN, 512-(phAvg*2));
 		} else { // keep LOW output while LEDs off
 			turnOffPWM();
 		}
@@ -743,14 +678,14 @@ PI_THREAD(btnLeftThread) {
 						delay(BUTTON_WAIT); // depends on our specs
 					}
 					// button released
-          if(isMainApp()) {
-            goLeft();
-          } else if (isWelcomePage() && pwInd < 6) {
-            // password input
-            password[pwInd] = 'L';
-            increasePasswordIndex();
-            timePasswordInputReceived = millis(); // start/reset timer
-          }
+					if(isMainApp()) {
+						goLeft();
+					} else if (isWelcomePage() && pwInd < 6) {
+						// password input
+						password[pwInd] = 'L';
+						increasePasswordIndex();
+						timePasswordInputReceived = millis(); // start/reset timer
+					}
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -774,15 +709,15 @@ PI_THREAD(btnRightThread) {
 						delay(BUTTON_WAIT); // depends on our specs
 					}
 					// button released
-          if(isMainApp()) {
-            goRight();
-            printf("RIGHT\n");
-          } else if (isWelcomePage() && pwInd < 6) {
-            // password input
-            password[pwInd] = 'R';
-            increasePasswordIndex();
-            timePasswordInputReceived = millis(); // start/reset timer
-          }
+					if(isMainApp()) {
+						goRight();
+						printf("RIGHT\n");
+					} else if (isWelcomePage() && pwInd < 6) {
+						// password input
+						password[pwInd] = 'R';
+						increasePasswordIndex();
+						timePasswordInputReceived = millis(); // start/reset timer
+					}
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -810,41 +745,38 @@ PI_THREAD(btnCenterThread) {
 						}
 					}
 					// button released
-
-          // Long Press
+					// Long Press
 					if((millis()-timeButtonCenterPressed)>2000) {
-            if(isMainApp()) {
-  						// Sign out
-  						goToWelcomePage();
-  						while(digitalRead(BUTTON_CENTER)==1) {
-  							// wait until user releases button
-  						}
-            } else { // already on welcome page
-              // Log in as guest
-              currentUser = '0';
-              sendPasswordSuccess();
-              goToMainPage(currentUser);
-              while(digitalRead(BUTTON_CENTER)==1) {
-                // wait until user releases button
-              }
-            }
+						if(isMainApp()) {
+							// Sign out
+							goToWelcomePage();
+							while(digitalRead(BUTTON_CENTER)==1) {
+								// wait until user releases button
+							}
+						} else { // already on welcome page
+							// Log in as guest
+							currentUser = GUEST_ID;
+							sendPasswordSuccess();
+							goToMainPage(currentUser);
+							while(digitalRead(BUTTON_CENTER)==1) {
+							// wait until user releases button
+							}
+						}
 					}
-          // Short Press
-          else { 
-            if(isMainApp()) {
-              if(isYoutube()){
-                // TODO: handle start/stop video
-              }
-            } else if (isWelcomePage() && (pwInd < 6)) {
-              // password input
-              password[pwInd] = 'C';
-              increasePasswordIndex();
-              timePasswordInputReceived = millis(); // start/reset timer
-            }
+					// Short Press
+					else { 
+						if(isMainApp()) {
+						  if(isYoutube()){
+							// TODO: handle start/stop video
+						  }
+						} else if (isWelcomePage() && (pwInd < 6)) {
+						  // password input
+						  password[pwInd] = 'C';
+						  increasePasswordIndex();
+						  timePasswordInputReceived = millis(); // start/reset timer
+						}
 
-          }
-					// TODO: handle turn on/off tv
-				
+					}				
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -908,7 +840,6 @@ PI_THREAD(voiceThread) {
 }
 
 void hotwordDetected(int hotword) {
-	/*
   if (hotword == 1) {
     // weather
     switchToApp(getWeatherIndex());
@@ -931,7 +862,7 @@ void hotwordDetected(int hotword) {
     // log out
     //logOut();
   }
-  */
+  
 }
 
 /** Initialize i/o, threads, and variables
@@ -941,9 +872,8 @@ int rpi_init(){
 	signal(SIGINT, INThandler); // handle exit
 
 	// Initialize variables
-	//firefoxCall = "sudo -u $SUDO_USER firefox localhost:8000/page0.html &"; // initialize to welcome page
+	currentUser = NO_USER; //TODO maybe GUEST_ID
 	currentApp = 0;
-	currentUser = '0'; // default user is guest
 	ledThreadRunning = 0;
 	phAvg = 64; // initialize to mean (range [0, 127])
 	terminateCode = 0;
@@ -963,13 +893,11 @@ int rpi_init(){
 	pinMode(BUTTON_CENTER, INPUT);
 	pinMode(LED1, OUTPUT);
 	pinMode(LED2, OUTPUT);
-	// pinMode(LED3, OUTPUT);
-	// pinMode(LED4, OUTPUT);
-	// pinMode(LED5, OUTPUT);
-	// pinMode(LED6, OUTPUT);
-	// pinMode(LED7, OUTPUT);
-	// pinMode(LED8, OUTPUT);
-	pinMode(RED, PWM_OUTPUT);
+	pinMode(LED3, OUTPUT);
+	pinMode(LED4, OUTPUT);
+	pinMode(LED5, OUTPUT);
+	pinMode(LED6, OUTPUT);
+	//pinMode(RED, PWM_OUTPUT);
 	pinMode(GREEN, PWM_OUTPUT);
 	pinMode(BLUE, PWM_OUTPUT);
 	pinMode(PHRES_A3, INPUT);
@@ -977,11 +905,11 @@ int rpi_init(){
 	pinMode(PHRES_A5, INPUT);
 	pinMode(PHRES_A6, INPUT);
 	pinMode(PHRES_A7, INPUT);
-	// pinMode(PHRES_B3, INPUT);
-	// pinMode(PHRES_B4, INPUT);
-	// pinMode(PHRES_B5, INPUT);
-	// pinMode(PHRES_B6, INPUT);
-	// pinMode(PHRES_B7, INPUT);
+	pinMode(PHRES_B3, INPUT);
+	pinMode(PHRES_B4, INPUT);
+	pinMode(PHRES_B5, INPUT);
+	pinMode(PHRES_B6, INPUT);
+	pinMode(PHRES_B7, INPUT);
 
 
 	// Setup pull-down resistance
@@ -992,7 +920,6 @@ int rpi_init(){
 
 	if(piThreadCreate(phresThread) != 0){
 		fprintf(stderr, "Unable to start Photoresistor thread: %s\n", strerror(errno));
-		//return 1;
 	}
 
 	if(piThreadCreate(btnLeftThread) != 0){
@@ -1010,10 +937,22 @@ int rpi_init(){
 		return 1;
 	}
 
-	if(piThreadCreate(voiceThread) != 0){
+	/*if(piThreadCreate(voiceThread) != 0){
 		fprintf(stderr, "Unable to start Voice thread: %s\n", strerror(errno));
 		return 1;
-	}
+	}*/
+	
+	// Start web app
+	//system("fuser -k tcp/8000"); // kill process runnning localhost:8000
+	system("killall python");
+	system("python -m SimpleHTTPServer 8000 &");
+	initWelcomePage(); //TODO: we added this line to open chromium
+	
+	appCommands.push_back(goWeather);
+	appCommands.push_back(goYoutube);
+	appCommands.push_back(goCalendar);
+	guestAppCommands.push_back(goWeather);
+	guestAppCommands.push_back(goYoutube);
 
 	return 0;
 }
@@ -1024,12 +963,10 @@ int rpi_init(){
 void turnOffLEDs() {
 	digitalWrite(LED1, LOW);
 	digitalWrite(LED2, LOW);
-	/*digitalWrite(LED3, LOW);
+	digitalWrite(LED3, LOW);
 	digitalWrite(LED4, LOW);
 	digitalWrite(LED5, LOW);
 	digitalWrite(LED6, LOW);
-	digitalWrite(LED7, LOW);
-	digitalWrite(LED8, LOW);*/
 }
 
 /** Turns on all LEDs
@@ -1038,19 +975,17 @@ void turnOffLEDs() {
 void turnOnLEDs() {
 	digitalWrite(LED1, HIGH);
 	digitalWrite(LED2, HIGH);
-	/*digitalWrite(LED3, HIGH);
+	digitalWrite(LED3, HIGH);
 	digitalWrite(LED4, HIGH);
 	digitalWrite(LED5, HIGH);
 	digitalWrite(LED6, HIGH);
-	digitalWrite(LED7, HIGH);
-	digitalWrite(LED8, HIGH);*/
 }
 
 /** Turns off all PWMs
  * 
  */
 void turnOffPWM() {
-	pwmWrite(RED, 0);
+	//pwmWrite(RED, 0);
 	pwmWrite(GREEN, 0);
 	pwmWrite(BLUE, 0);
 }
