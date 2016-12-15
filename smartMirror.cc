@@ -83,8 +83,10 @@ char ledThreadRunning; // boolean for led thread
 short phAvg; // photoresistor running average
 char runningAvgShift = 3; // 3 to discard 3 least significant bits (unused bits)
 char terminateCode; // boolean to track when user terminates code
-string appURL = "http://localhost:8000/smartmirror.html";
-string chromiumCall = "sudo -u $SUDO_USER chromium-browser --start-fullscreen --app=" + appURL;
+string appURL = "http://localhost:8000/smartmirror.html &";
+
+string chromiumCall = "sudo -u pi chromium-browser --start-fullscreen --app=" + appURL;
+//string chromiumCall = "sudo -u $SUDO_USER chromium-browser --start-fullscreen --app=" + appURL;
 
 string goLeftCmd = "sh key.sh Left ";
 string goRightCmd = "sh key.sh Right ";
@@ -100,6 +102,9 @@ string sleepCmd = "sh key.sh z ";
 string wakeCmd = "sh key.sh o ";
 string logoutCmd = "sh key.sh l";
 string loginCmd = "sh key.sh ";
+string playOrPauseVideoCmd = "sh key.sh h";
+string rebootCmd = "reboot";
+string shutdownCmd = "shutdown";
 
 vector<string> appCommands;
 vector<string> guestAppCommands;
@@ -109,6 +114,9 @@ int pwInd; // password current index (track password input)
 int currentUser; // current user ID ('0' -> guest, '1' -> user1, etc)
 unsigned long timePasswordInputReceived; // time stamp when password input received
 unsigned long timeButtonCenterPressed; // time stamp when center button was pressed
+unsigned long timeButtonLeftPressed; // time stamp when center button was pressed
+unsigned long timeButtonRightPressed; // time stamp when center button was pressed
+bool isAsleep;
 char blockButtonPress; // boolean to indicate when to block button presses
 
 
@@ -151,6 +159,11 @@ void logOut();
 vector<string> getAppCommands();
 void hotwordDetected(int hotword);
 void initWelcomePage();
+void playOrPauseVideo();
+void closeApps();
+void reboot();
+void shutdown();
+
 
 ///////Voice
 
@@ -359,7 +372,7 @@ int main(void) {
 		}
 		
 		// Youtube/Video page
-		if(isYoutube() && !ledThreadRunning) {
+		if(isYoutube() && !ledThreadRunning && !isAsleep) {
 			// Start LED thread/timer!
 			if(piThreadCreate(ledThread) != 0){
 				fprintf(stderr, "Unable to start LED thread: %s\n", strerror(errno));
@@ -451,9 +464,6 @@ bool isMainApp() {
   return !isWelcomePage();
 }
 
-
-
-
 bool isWeather() {
   return currentApp == getWeatherIndex();
 }
@@ -493,8 +503,6 @@ bool isGuest() {
   return currentUser == GUEST_ID;
 }
 
-
-
 void goLeft() {
   if(isMainApp()) {
     currentApp--;
@@ -528,18 +536,38 @@ void showMiroslav() {
 
 void sleep() {
   system(sleepCmd.c_str());
+  isAsleep = 1;
   
 }
 
 void wake() {
     system(wakeCmd.c_str());
-  
+  isAsleep = 0;
 }
 
 void logOut() {
   if(isMainApp()) {
     goToWelcomePage();
   }
+}
+
+void playOrPauseVideo() {
+	system(playOrPauseVideoCmd.c_str());
+}
+
+void closeApps() {
+	//system("fuser -k tcp/8000"); // kill process runnning localhost:8000
+	system("killall chromium-browser");
+	system("killall python");
+}
+
+void reboot() {
+	closeApps();
+	system(rebootCmd.c_str());
+}
+
+void shutdown() {
+	system(shutdownCmd.c_str());
 }
 
 /** Exit handler
@@ -564,7 +592,7 @@ int ledDelay(int led, int delayDuration) {
 	// delay and check app page regularly
 	for(;i<delayDuration; i+=LED_DELAY_PERIOD) {
 		delay(LED_DELAY_PERIOD); // partial delay
-		if(!isYoutube()) {
+		if(!isYoutube() || isAsleep) {
 			printf("TIMER TERMINATED\n");
 			turnOffLEDs(); // turn off all LEDs
 			ledThreadRunning = 0; // led thread will exit
@@ -588,7 +616,7 @@ PI_THREAD(ledThread) {
 	piHiPri(50); // average priority
 	// Turn on one LED every 15 seconds
 	// if currentApp changes, turn off LEDs and close thread 
-	if(ledDelay(1, LED_SWITCH_TIME)) return NULL;
+	//if(ledDelay(1, LED_SWITCH_TIME)) return NULL;
 	// TODO: do we want to wait longer?
 	// How long does the Youtube video take to load/start?
 	digitalWrite(LED1, HIGH);
@@ -602,6 +630,7 @@ PI_THREAD(ledThread) {
 	digitalWrite(LED5, HIGH);
 	if(ledDelay(6, LED_SWITCH_TIME)) return NULL;
 	digitalWrite(LED6, HIGH);
+	if(ledDelay(1, LED_SWITCH_TIME)) return NULL;
 
 	// Blink for LED_SWITCH_TIME to indicate timer done
 	int i = 0;
@@ -616,7 +645,7 @@ PI_THREAD(ledThread) {
 	turnOffLEDs(); // writes to first 8 gpio in wiring Pi
 	
 	// delay until web page changed
-	while (isYoutube()) {
+	while (isYoutube() && !isAsleep) {
 		ledDelay(11, LED_BLINK_TIME);
 	}
 	
@@ -670,22 +699,39 @@ PI_THREAD(btnLeftThread) {
 		if (blockButtonPress == 0) {
 			while(digitalRead(BUTTON_LEFT)==1) {
 				blockButtonPress = 1; // block all concurrent button presses
+				timeButtonLeftPressed = millis(); // capture time button pressed
 				// button pressed (block bouncing)
 				delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
 				if (digitalRead(BUTTON_LEFT)==1) { // ignore if pressed less than 30 ms
 					while (digitalRead(BUTTON_LEFT)==1) {
 						// wait for button release
 						delay(BUTTON_WAIT); // depends on our specs
+						if((millis()-timeButtonLeftPressed)>3000) {
+							break;
+						}
 					}
 					// button released
-					if(isMainApp()) {
-						goLeft();
-					} else if (isWelcomePage() && pwInd < 6) {
-						// password input
-						password[pwInd] = 'L';
-						increasePasswordIndex();
-						timePasswordInputReceived = millis(); // start/reset timer
+					// Long Press
+					if((millis()-timeButtonLeftPressed)>3000) {
+						shutdown();
 					}
+					// Short Press
+					else { 
+						if(isMainApp()) {
+							goLeft();
+						} else if (isWelcomePage() && pwInd < 6) {
+							// password input
+							password[pwInd] = 'L';
+							increasePasswordIndex();
+							timePasswordInputReceived = millis(); // start/reset timer
+						}	
+					}	
+					
+					while (digitalRead(BUTTON_LEFT)==1) {
+						// wait for button release
+						delay(BUTTON_WAIT); // depends on our specs
+						
+					}				
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -701,23 +747,52 @@ PI_THREAD(btnRightThread) {
 		if (blockButtonPress == 0) {
 			while(digitalRead(BUTTON_RIGHT)==1) {
 				blockButtonPress = 1; // block all concurrent button presses
+				timeButtonRightPressed = millis(); // capture time button pressed
 				// button pressed (block bouncing)
 				delay(BUTTON_WAIT); // min button press duration (WAIT + POLLING)
 				if (digitalRead(BUTTON_RIGHT)==1) { // ignore if pressed less than 30 ms
 					while (digitalRead(BUTTON_RIGHT)==1) {
 						// wait for button release
 						delay(BUTTON_WAIT); // depends on our specs
+						if((millis()-timeButtonRightPressed)>2000) {
+							break;
+						}
 					}
 					// button released
-					if(isMainApp()) {
-						goRight();
-						printf("RIGHT\n");
-					} else if (isWelcomePage() && pwInd < 6) {
-						// password input
-						password[pwInd] = 'R';
-						increasePasswordIndex();
-						timePasswordInputReceived = millis(); // start/reset timer
+					// Long Press
+					if((millis()-timeButtonRightPressed)>2000) {
+						if(isMainApp()) {
+							// Sign out
+							goToWelcomePage();
+							
+	
+						} else { // already on welcome page
+							// Log in as guest
+							currentUser = GUEST_ID;
+							sendPasswordSuccess();
+							goToMainPage(currentUser);
+							
+						}
 					}
+					// Short Press
+					else { 
+						if(isMainApp()) {
+							goRight();
+							printf("RIGHT\n");
+						} else if (isWelcomePage() && pwInd < 6) {
+							// password input
+							password[pwInd] = 'R';
+							increasePasswordIndex();
+							timePasswordInputReceived = millis(); // start/reset timer
+						}
+					}	
+					
+					while (digitalRead(BUTTON_RIGHT)==1) {
+						// wait for button release
+						delay(BUTTON_WAIT); // depends on our specs
+						
+					}		
+				
 				}
 			}
 			blockButtonPress = 0; // unbock all button presses	
@@ -740,34 +815,20 @@ PI_THREAD(btnCenterThread) {
 					while (digitalRead(BUTTON_CENTER)==1) {
 						// wait for button release
 						delay(BUTTON_WAIT); // depends on our specs
-						if((millis()-timeButtonCenterPressed)>2000) {
+						if((millis()-timeButtonCenterPressed)>3000) {
 							break;
 						}
 					}
 					// button released
 					// Long Press
-					if((millis()-timeButtonCenterPressed)>2000) {
-						if(isMainApp()) {
-							// Sign out
-							goToWelcomePage();
-							while(digitalRead(BUTTON_CENTER)==1) {
-								// wait until user releases button
-							}
-						} else { // already on welcome page
-							// Log in as guest
-							currentUser = GUEST_ID;
-							sendPasswordSuccess();
-							goToMainPage(currentUser);
-							while(digitalRead(BUTTON_CENTER)==1) {
-							// wait until user releases button
-							}
-						}
+					if((millis()-timeButtonCenterPressed)>3000) {
+						reboot();
 					}
 					// Short Press
 					else { 
 						if(isMainApp()) {
 						  if(isYoutube()){
-							// TODO: handle start/stop video
+							  //playOrPauseVideo();
 						  }
 						} else if (isWelcomePage() && (pwInd < 6)) {
 						  // password input
@@ -776,6 +837,12 @@ PI_THREAD(btnCenterThread) {
 						  timePasswordInputReceived = millis(); // start/reset timer
 						}
 
+					}	
+					
+					while (digitalRead(BUTTON_CENTER)==1) {
+						// wait for button release
+						delay(BUTTON_WAIT); // depends on our specs
+						
 					}				
 				}
 			}
@@ -807,8 +874,8 @@ PI_THREAD(voiceThread) {
   //   model_filename = "resources/snowboy.umdl,resources/alexa.pmdl";
   //   sensitivity_str = "0.4,0.4";
   std::string resource_filename = "resources/common.res";
-  std::string model_filename = "resources/weather.pmdl,resources/youtube.pmdl,resources/calendar.pmdl,resources/miroslav.pmdl,resources/sleep.pmdl,resources/wakeup.pmdl,resources/logout.pmdl";
-  std::string sensitivity_str = "0.5,0.5,0.5,0.5,0.5,0.5,0.5";
+  std::string model_filename = "resources/weather.pmdl,resources/youtube.pmdl,resources/calendar.pmdl,resources/miroslav.pmdl,resources/gotosleep.pmdl,resources/wakeup.pmdl,resources/logout.pmdl";
+  std::string sensitivity_str = "0.3,0.3,0.3,0.5,0.6,0.6,0.3";
   float audio_gain = 1;
 
   // Initializes Snowboy detector.
@@ -879,7 +946,7 @@ int rpi_init(){
 	terminateCode = 0;
 	blockButtonPress = 0; // unblock button presses
 	timePasswordInputReceived = 0;
-
+	isAsleep = 0;
 	// setup wiringPi with BCM_GPIO pin numbering
 	if(wiringPiSetupGpio() < 0) {
 		fprintf(stderr, "Unable to setup wiringPi: %s\n", strerror(errno));
@@ -937,14 +1004,13 @@ int rpi_init(){
 		return 1;
 	}
 
-	/*if(piThreadCreate(voiceThread) != 0){
+	if(piThreadCreate(voiceThread) != 0){
 		fprintf(stderr, "Unable to start Voice thread: %s\n", strerror(errno));
 		return 1;
-	}*/
+	}
 	
 	// Start web app
-	//system("fuser -k tcp/8000"); // kill process runnning localhost:8000
-	system("killall python");
+	closeApps();
 	system("python -m SimpleHTTPServer 8000 &");
 	initWelcomePage(); //TODO: we added this line to open chromium
 	

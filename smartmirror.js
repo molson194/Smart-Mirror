@@ -1,64 +1,158 @@
-$(document).ready(function() {
-
-    window.setInterval(showDate(), 1000); // update time every second
-    window.setInterval(showTemp(), 1000*60); // update temperature every minute
-    document.onkeyup = KeyCheck;
-
-    handleUserParam();
-    handleAppParam();
-
-    window.setInterval(loadCalendar(), 1000*60*60); // update calendar every hour
-    window.setInterval(loadWeather(), 1000*60*60); // update weather every hour
-    //initYoutube(); ?
-
-});
-
-
+const PASSWORD_LENGTH = 6;
+const WEATHER_INDEX = 0;
+const YOUTUBE_INDEX = 1;
+const CALENDAR_INDEX = 2;
+const MIROSLAV_INDEX = 3;
+const NO_USER = "-1";
+const GUEST_ID = "0";
+const USER1_ID = "1";
+const USER2_ID = "2";
+const USER3_ID = "3";
+const GUEST_NAME = "Guest";
+const JEREMY_NAME = "Jeremy";
+const SAEED_NAME = "Matthew";
+const MATTHEW_NAME = "Saeed";
+const GUEST_APP_FUNCTIONS = [showWeather, showYoutube];
+const APP_FUNCTIONS = [showWeather, showYoutube, showCalendar];
 
 // Your Client ID can be retrieved from your project in the Google Developer Console, https://console.developers.google.com
 var CLIENT_ID = '593428568477-kfk8jggviu6h69l3c19gmn6pcl5e8792.apps.googleusercontent.com';
 var CLIENT_SECRET = 'ivf-51KXZ108Zmo7AOhISxRb';
 
 // Users
-var guestId = "0";
-var guest = "Guest";
-var jeremy = "Jeremy";
-var saeed = "Saeed";
-var matthew = "Matthew";
-var dukeball = "Duke Club Ball";
-var users = {
-  "0" : {
-    "name" : guest
-  },
-  "1" : {
-    "name" : jeremy,
+
+var users = {};
+users[GUEST_ID] = {
+    "name" : GUEST_NAME
+  };
+users[USER1_ID] = {
+    "name" : JEREMY_NAME,
     "access_token" : "ya29.GlugA0_DnCr4HHFNXMkG_s2t47IpQvF5YLwNpD3adV6bGM8lfnRP7fTDTHo6bSTsaDQkWk4aDysRtXIVIWoZp7mIgHkp0IQYiTkVyef-upoMxiFluuBjw_Qc9gBR",
     "refresh_token" :  "1/AENYqu4C-mfy7IcHBMqdj1ZuOyV4p4V9j986HQEb5lE",
-  },
-  "2" : {
-    "name" : saeed,
+  };
+users[USER2_ID] = {
+    "name" : SAEED_NAME,
     "access_token" : "ya29.Ci-lA97hxELYARY-Xb6ogSpoPYkEYn-8cVQUtdtXMJBhL4-69sDFnrtZvijTf_Kjcg",
     "refresh_token" : "1/YlfEGl6iHnJ3mqa84vaO3ij8ugux8yiYR0MlwPSn2P27QbjYypn-VYPPkkIGDqjM",
-  },
-  "3" : {
-    "name" : matthew,
+  };
+users[USER3_ID] = {
+    "name" : MATTHEW_NAME,
     "access_token" : "ya29.Ci-lA3RFvcahBluRI3mgWC3IbayDjh7bM9a-M_QD9BT2eWrJEhqQ53aKfGC-_6Xf2A",
     "refresh_token" : "1/FUHoBAYNyK0zkOXxG2q8hV-o5TCCx5keY-Ez0ztWs9k",
-  },
-  "4" : {
-    "name" : dukeball,
-    "access_token" : "ya29.Ci-gAyJ60pWzoMVvh56V1TMezs4UKflwznoKNjCVvccW4piEF_85c7Ga6d94IvczUA",
-    "refresh_token" : "1/0oU9XNdTpQNGJpiHm7GXddHR9yCP_7Yp7FzSjqc6O54",
-  }
-}
+  };
 
-var current_user = guestId;
+var currentUserId = NO_USER;
 
 // Apps
 var currentAppIndex = 0;
 var player;
 
+// Welcome
+var numStars = 0;
+var isAsleep = false;
 
+
+// Initialization
+$(document).ready(function() {
+	document.onkeyup = KeyCheck;
+  showDate();
+  showTemp();
+  window.setInterval(showDate, 1000); // update time every second
+  window.setInterval(showTemp, 1000*60); // update temperature every minute
+
+  showWelcomeScreen();
+   
+});
+
+
+function KeyCheck(e) {
+  var keyID = (window.event) ? event.keyCode : e.keyCode;
+	// Global Events
+  switch(keyID) {
+    case 90: // z (sleep)
+      sleep();
+      break;
+    case 79: // o (on)
+      wake();
+      break;  
+  }
+
+  if(isAsleep) return;
+ 
+  if(isLoggedIn()) {
+    // Main App Events
+    switch(keyID) {
+      case 37: // left
+        var appFunctions = getAppFunctions();
+        currentAppIndex = currentAppIndex - 1;
+        if (currentAppIndex == -1) currentAppIndex = appFunctions.length-1;
+        appFunctions[currentAppIndex]();
+        break;
+      case 39: // right
+        var appFunctions = getAppFunctions();
+        currentAppIndex = (currentAppIndex + 1) % appFunctions.length;
+        appFunctions[currentAppIndex]();
+        break;
+      case 67: //c
+        if(!isGuest()) showCalendar();
+        break;
+      case 77: //m
+        showMiroslav();
+        break;
+      case 87: //w
+        showWeather();
+        break;
+      case 89: // y
+        showYoutube();
+        break;
+      case 72: // h
+		print("playOrPause");
+		playOrPauseVideo();
+		break;
+      case 76: // l (logout, show welcome page)
+        logout();
+        break;    
+    }
+  } else {
+    // Welcome Events
+    switch(keyID) {
+      case 80: // p (password)
+        addStar();
+        break;
+      case 82: // r (reset)
+        clearStars();
+        break;
+      case 83: // s (success)
+        showPasswordSuccess();
+        break;
+      case 70: // f (fail)
+        clearStars();
+        showPasswordFail();
+        break;
+      case 48: // 0 (guest)
+        loginAsUser(GUEST_ID);
+        break;
+      case 49: // 1 (user 1)
+        loginAsUser(USER1_ID);
+        break;
+      case 50: // 2 (user 2)
+        loginAsUser(USER2_ID);
+        break;
+      case 51: // 3 (user 3)
+        loginAsUser(USER3_ID);
+        break;
+    }
+  }
+}
+
+///////// General (all working) /////////////
+function switchDisplay(show, hide) {
+  document.getElementById(hide).style.display = "none";
+  document.getElementById(show).style.display = "block";
+}
+
+
+///////// Top Bar (all working) /////////////
 function showDate() {
   var date = new Date(Date.now());
   $("#time").html(date.toLocaleTimeString());
@@ -71,105 +165,142 @@ function showTemp() {
   });
 }
 
-function KeyCheck(e) {
-  var KeyID = (window.event) ? event.keyCode : e.keyCode;
-  switch(KeyID) {
-    case 37:
-      var appFunctions = getAppFunctions();
-      currentAppIndex = currentAppIndex - 1;
-      if (currentAppIndex == -1) currentAppIndex = appFunctions.length-1;
-      appFunctions[currentAppIndex]();
-      break;
-    case 39:
-      var appFunctions = getAppFunctions();
-      currentAppIndex = (currentAppIndex + 1) % appFunctions.length;
-      appFunctions[currentAppIndex]();
-      break;
-    case 67: //c
-      if(!isGuest()) showCalendar();
-      break;
-    case 77: //m
-      showMiroslav();
-      break;
-    case 87: //w
-      showWeather();
-      break;
-    case 89: // y
-      showYoutube();
-      break;
+function setTitle(title) {
+  document.getElementById("title").innerHTML = title;
+}
+
+
+///////// Welcome (all working) /////////////
+function showWelcomeScreen() {
+  switchDisplay("main", "sleep");
+  switchDisplay("welcome", "apps");
+  setTitle("Smart Mirror");
+  showGreeting();
+  clearStars();
+}
+
+function showGreeting() {
+  var date = new Date(Date.now());
+  if (date.getHours() < 12) {
+    $("#greeting").html("Good Morning");
+  } else if (date.getHours() < 18) {
+    $("#greeting").html("Good Afternoon");
+  } else if (date.getHours() < 20) {
+    $("#greeting").html("Good Evening");
+  } else if (date.getHours() >= 20) {
+    $("#greeting").html("Good Night");
+  } 
+}
+
+function addStar() {
+  if(numStars < 6) numStars++;
+  console.log(numStars);
+  showStars();
+}
+
+function clearStars() {
+  numStars = 0;
+  showStars();
+}
+
+function showStars() {
+  var html = "";
+  for(var i = 0; i < PASSWORD_LENGTH; i++) {
+    if(i<numStars) {
+      html+="* ";
+    }else {
+      html+= "_ ";
+    }
   }
+  document.getElementById("password").innerHTML = html;
+  document.getElementById("password-status").style.visibility = "hidden";
 }
 
-function handleAppParam() {
-  var app = getParameterByName("app", window.location.href);
-  if(isGuest()) {
-    currentAppIndex = 0; // default guest to weather
-  } else if (app == "calendar") {
-    currentAppIndex = 0;
-  } else if (app == "weather") {
-    currentAppIndex = 1;
-  } else if (app == "youtube") {
-    currentAppIndex = 2;
-  } else {
-    currentAppIndex = 0; // default to calendar
-  }
-
-  getAppFunctions()[currentAppIndex]();
+function showPasswordSuccess() {
+  var passwordStatus = document.getElementById("password-status");
+  passwordStatus.style.visibility = "visible";
+  passwordStatus.innerHTML = "Success! Logging in...";
 }
 
-
-/// Not using anymore
-function handleUserParam() {
-  var user = getParameterByName("user", window.location.href);
-  if(!user) switchToUser(guestId);
-  switchToUser(user);
+function showPasswordFail() {
+  var passwordStatus = document.getElementById("password-status");
+  passwordStatus.style.visibility = "visible";
+  passwordStatus.innerHTML = "Invalid password! Please try again.";
 }
 
-function getParameterByName(name, url) {
-  if (!url) {
-    url = window.location.href;
-  }
-  name = name.replace(/[\[\]]/g, "\\$&");
-  var regex = new RegExp("[?&]" + name + "(=([^&#]*)|&|#|$)"),
-      results = regex.exec(url);
-  if (!results) return null;
-  if (!results[2]) return '';
-  return decodeURIComponent(results[2].replace(/\+/g, " "));
+function sleep() {
+  isAsleep = true;
+  player.pauseVideo();
+  switchDisplay("sleep", "main");
 }
 
-/////
-
-function getAppFunctions() {
-  if(isGuest()) {
-    return [showWeather, showYoutube];
-  } else {
-    return [showCalendar, showWeather, showYoutube];
-  }
+function wake() {
+  isAsleep = false;
+  switchDisplay("main", "sleep");
+  if(currentAppIndex == YOUTUBE_INDEX) player.playVideo();
 }
 
-function isGuest() {
-  return current_user == guestId;
+/////// Main Apps /////////
+function showMainApps() {
+  switchDisplay("main", "sleep");
+  switchDisplay("apps", "welcome");
 }
 
-function switchToUser(user) {
-  console.log("switch to user " + user);
-  if (!(user in users) || user == guestId) {
-    current_user = guestId;
+function loginAsUser(userId) {
+  console.log("Log in as user " + userId);
+  loadWeather();
+  // TODO: load youtube?
+  switchToUser(userId);
+  showMainApps();
+}
+
+function switchToUser(userId) {
+  if (!(userId in users) || userId == GUEST_ID) {
+    currentUserId = GUEST_ID;
     clearEvents();
     showWeather();
   } else {
-    current_user = user;
+    currentUserId = userId;
+    loadCalendar();
     showCalendar();
   }
 
-  document.getElementById('user').innerHTML = users[current_user].name;
+  console.log(currentUserId);
+  document.getElementById("title").innerHTML = getCurrentUser().name;
+}
+
+function logout() {
+  clearEvents();
+  player.pauseVideo();
+  currentUserId = NO_USER;
+  showWelcomeScreen();
+}
+
+function getAppFunctions() {
+  if(isGuest()) {
+    return GUEST_APP_FUNCTIONS;
+  } else {
+    return APP_FUNCTIONS;
+  }
+}
+
+function isLoggedIn() {
+  return currentUserId != NO_USER;
+}
+
+function isGuest() {
+  return currentUserId == GUEST_ID;
+}
+
+function getCurrentUser() {
+  return users[currentUserId];
 }
 
 function showDiv(id) {
   var div = document.getElementById(id);
   div.style.display = 'block';
   if(id=='youtube') {
-    //player.playVideo();
+    player.playVideo();
   }
 }
 
@@ -177,7 +308,8 @@ function hideDiv(id) {
   var div = document.getElementById(id);
   div.style.display = 'none';
   if(id=='youtube') {
-    //player.pauseVideo();
+	  console.log("pause");
+    player.pauseVideo();
   }
 }
 
@@ -186,7 +318,7 @@ function showCalendar() {
   if(isGuest()) {
     showWeather();
   } else {
-    currentAppIndex = 0;
+    currentAppIndex = CALENDAR_INDEX;
     showDiv('calendar');
     hideDiv('weather');
     hideDiv('youtube');
@@ -196,28 +328,25 @@ function showCalendar() {
 
 function showWeather() {
   console.log("weather");
-  currentAppIndex = isGuest() ? 0 : 1;
+  currentAppIndex = WEATHER_INDEX;
   hideDiv('calendar');
   showDiv('weather');
   hideDiv('youtube');
   hideDiv('miroslav');
-
-
 }
 
 function showYoutube() {
   console.log("youtube");
-  currentAppIndex = isGuest() ? 1 : 2;
+  currentAppIndex = YOUTUBE_INDEX;
   hideDiv('weather');
   hideDiv('calendar');
   showDiv('youtube');
   hideDiv('miroslav');
-
 }
 
 function showMiroslav() {
   console.log("miroslav");
-  currentAppIndex = isGuest() ? 2 : 3;
+  currentAppIndex = MIROSLAV_INDEX;
   hideDiv('weather');
   hideDiv('calendar');
   hideDiv('youtube');
@@ -237,11 +366,11 @@ function loadWeather() {
 }
 
 function loadCalendar(){
-  if(current_user == guestId) return;
-  console.log("loading calendar for user: " + users[current_user].name + ".\n");
+  if(isGuest()) return;
+  console.log("loading calendar for user: " + getCurrentUser().name + ".\n");
   // Retrieve today's events for current user
 
-  var access_token = users[current_user].access_token;
+  var access_token = getCurrentUser().access_token;
   var calendarParams = getCalendarRequestParams(access_token);
   var calendarUrl = getCalendarURL(calendarParams);
   var calendarRequest = $.getJSON(calendarUrl);
@@ -255,7 +384,7 @@ function loadCalendar(){
     console.log("Failed to retreive calendar with access token.\nRequesting a new one using refresh token...\n");
 
     // Request new access token
-    var refresh_token = users[current_user].refresh_token;
+    var refresh_token = getCurrentUser().refresh_token;
     var tokenURL = "https://www.googleapis.com/oauth2/v4/token";
     var payload = {
       client_id: CLIENT_ID,
@@ -267,7 +396,7 @@ function loadCalendar(){
     accessTokenRequest.done(function(json) {
       console.log("Successfully retrieved a new access token.\n")
       access_token = json.access_token;
-      users[current_user].access_token = access_token;
+      getCurrentUser().access_token = access_token;
       calendarParams = getCalendarRequestParams(access_token);
       calendarUrl = getCalendarURL(calendarParams);
 
@@ -347,7 +476,14 @@ function appendEvent(description, startDate, endDate) {
   var maxLength = 50;
   var shortDescription = description.substring(0, maxLength);
   var eventsDiv = document.getElementById('events');
-  var eventInnerHTML = "<div style='width:60%; height: 15%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px; font-size:25px'><div style='width:45%; height:100%; float:left; padding-top:10px; padding-bottom:10px;'>"+shortDescription+"</div><div style='width:45%; height:100%; float:right; text-align:right; padding-top:10px; padding-bottom:10px;'>"+startDate+"</div></div>";
+  var eventInnerHTML = "";
+  if(startDate) {
+	    eventInnerHTML = "<div style='width:90%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px; font-size:25px'><div style='width:45%; height:100%; display:inline-block; padding-top:10px; padding-bottom:10px;'>"+shortDescription+"</div><div style='width:45%; display:inline-block; height:100%; float:right; text-align:right; padding-top:10px; padding-bottom:10px;'>"+startDate+"</div></div>";
+
+  } else {
+	    eventInnerHTML = "<div style='width:90%; margin: auto; margin-top: 10px; border-radius: 25px; border: 2px solid #FFFFFF; padding: 20px; font-size:25px'><div style='width:90%; height:100%; display:block; padding-top:10px; padding-bottom:10px;'>"+shortDescription+"</div></div>";
+
+  }
   var eventDiv = document.createElement('div');
   eventDiv.innerHTML = eventInnerHTML;
   eventsDiv.appendChild(eventDiv);
@@ -380,11 +516,9 @@ function onYouTubePlayerAPIReady() {
 
 }
 
-// autoplay video
 function onPlayerReady(event) {
-    //event.target.playVideo();
-    //event.target.pauseVideo();
 }
+
 
 // when video ends
 function onPlayerStateChange(event) {
@@ -397,6 +531,14 @@ function onPlayerStateChange(event) {
     }
 }
 
-function changeYoutube() {
+function isPlaying(player) {
+	return player.getPlayerState() == 1;
+}
 
+function playOrPauseVideo() {
+	if(isPlaying(player)) {
+		player.pauseVideo();
+	} else {
+		player.playVideo();
+	}
 }
