@@ -27,18 +27,18 @@ users[GUEST_ID] = {
   };
 users[USER1_ID] = {
     "name" : JEREMY_NAME,
-    "access_token" : "ya29.GlugA0_DnCr4HHFNXMkG_s2t47IpQvF5YLwNpD3adV6bGM8lfnRP7fTDTHo6bSTsaDQkWk4aDysRtXIVIWoZp7mIgHkp0IQYiTkVyef-upoMxiFluuBjw_Qc9gBR",
-    "refresh_token" :  "1/AENYqu4C-mfy7IcHBMqdj1ZuOyV4p4V9j986HQEb5lE",
+    "access_token" : "YOUR ACCESS TOKEN HERE",
+    "refresh_token" :  "YOUR REFRESH TOKEN HERE",
   };
 users[USER2_ID] = {
     "name" : SAEED_NAME,
-    "access_token" : "ya29.Ci-lA97hxELYARY-Xb6ogSpoPYkEYn-8cVQUtdtXMJBhL4-69sDFnrtZvijTf_Kjcg",
-    "refresh_token" : "1/YlfEGl6iHnJ3mqa84vaO3ij8ugux8yiYR0MlwPSn2P27QbjYypn-VYPPkkIGDqjM",
+    "access_token" : "YOUR ACCESS TOKEN HERE",
+    "refresh_token" : "YOUR REFRESH TOKEN HERE",
   };
 users[USER3_ID] = {
     "name" : MATTHEW_NAME,
-    "access_token" : "ya29.Ci-lA3RFvcahBluRI3mgWC3IbayDjh7bM9a-M_QD9BT2eWrJEhqQ53aKfGC-_6Xf2A",
-    "refresh_token" : "1/FUHoBAYNyK0zkOXxG2q8hV-o5TCCx5keY-Ez0ztWs9k",
+    "access_token" : "YOUR ACCESS TOKEN HERE",
+    "refresh_token" : "YOUR REFRESH TOKEN HERE",
   };
 
 var currentUserId = NO_USER;
