@@ -16,8 +16,8 @@ const GUEST_APP_FUNCTIONS = [showWeather, showYoutube];
 const APP_FUNCTIONS = [showWeather, showYoutube, showCalendar];
 
 // Your Client ID can be retrieved from your project in the Google Developer Console, https://console.developers.google.com
-var CLIENT_ID = '593428568477-kfk8jggviu6h69l3c19gmn6pcl5e8792.apps.googleusercontent.com';
-var CLIENT_SECRET = 'ivf-51KXZ108Zmo7AOhISxRb';
+var CLIENT_ID = 'CLIENT_ID';
+var CLIENT_SECRET = 'CLIENT_SECRET';
 
 // Users
 
